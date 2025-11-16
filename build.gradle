@@ -1,0 +1,95 @@
+/* === gRPC 설정 === */
+buildscript {
+	ext {
+		protobufVersion = '3.25.1'
+		protobufPluginVersion = '0.8.14'
+		grpcVersion = '1.58.1'
+	}
+}
+
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.7'
+	id 'io.spring.dependency-management' version '1.1.7'
+
+	/* === gRPC 설정 === */
+	id 'com.google.protobuf' version '0.9.4'
+}
+
+group = 'com.cookmate'
+version = '0.0.1-SNAPSHOT'
+description = 'Spring Boot Orchestrator for CookMate Voice & Vision AI Services'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	/* === Spring Boot 기본 === */
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	/* === Lombok === */
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	/* === gRPC === */
+	implementation "com.google.protobuf:protobuf-java-util:3.25.1"
+	implementation 'com.google.protobuf:protobuf-java:3.25.1'
+	implementation 'net.devh:grpc-server-spring-boot-starter:2.15.0.RELEASE' // 클라이언트 의존성 추가
+	runtimeOnly "io.grpc:grpc-netty-shaded:1.58.1"
+	implementation "io.grpc:grpc-protobuf:1.58.1"
+	implementation "io.grpc:grpc-stub:1.58.1"
+	compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
+	/* === Azure === */
+	implementation group: 'com.microsoft.cognitiveservices.speech', name: 'client-sdk', version: "1.43.0", ext: "jar"
+
+	/* === 메시지 브로커(STOMP) === */
+	implementation 'org.springframework:spring-messaging'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+/* === gRPC 코드 생성 설정 === */
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:3.25.1"
+	}
+	clean {
+		delete generatedFilesBaseDir
+	}
+	plugins {
+		grpc {
+			artifact = "io.grpc:protoc-gen-grpc-java:1.58.1"
+		}
+	}
+	generateProtoTasks {
+		all()*.plugins {
+			grpc{}
+		}
+	}
+}

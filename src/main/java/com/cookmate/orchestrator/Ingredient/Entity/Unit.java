@@ -1,0 +1,36 @@
+package com.cookmate.orchestrator.Ingredient.Entity;
+
+import com.cookmate.orchestrator.Recipe.Entity.RecipeIngredient;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "units")
+public class Unit {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Long id;
+
+    @Size(max = 32)
+    @NotNull
+    @Column(name = "code", nullable = false, length = 32)
+    private String code;
+
+    @Size(max = 64)
+    @NotNull
+    @Column(name = "name", nullable = false, length = 64)
+    private String name;
+
+    @OneToMany(mappedBy = "unit")
+    private Set<RecipeIngredient> recipeIngredients = new LinkedHashSet<>();
+
+}

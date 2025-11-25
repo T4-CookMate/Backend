@@ -4,8 +4,7 @@ import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -14,6 +13,9 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "user")
 public class User {
     @Id
@@ -47,4 +49,9 @@ public class User {
     @OneToMany(mappedBy = "user")
     private Set<UserRecipePreference> userRecipePreferences = new LinkedHashSet<>();
 
+    // provider : google이 들어감
+    private String provider;
+
+    // providerId : google 로그인 한 유저의 고유 ID가 들어감
+    private String providerId;
 }

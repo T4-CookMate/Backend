@@ -1,6 +1,9 @@
 package com.cookmate.orchestrator.VoiceAssist.WebSocket;
 
+import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
+import com.cookmate.orchestrator.Recipe.Repository.RecipeRepository;
 import com.cookmate.orchestrator.Recipe.Service.RecipeProgressService;
+import com.cookmate.orchestrator.User.Repository.UserRepository;
 import com.cookmate.orchestrator.VoiceAssist.STT.AzureSttSessionManager;
 import com.cookmate.orchestrator.VoiceAssist.NLU.DialogueService;
 import com.cookmate.orchestrator.VoiceAssist.NLU.IntentResult;
@@ -12,11 +15,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +39,8 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     private final NLUService nluService;
     private final DialogueService dialogueService;
     private final AzureTtsService azureTtsService;
+    private final UserRepository userRepository;
+    private final RecipeRepository recipeRepository;
 
     /**
      * 새로운 WebSocket 연결 생성 시 호출 -> Azure continuous STT 세션 생성
@@ -41,14 +49,36 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         // TODO: 로그인 구현 후 userId는 인증 로직에서 빼내옴 (지금은 쿼리파라미터에서 userId, recipeId 꺼내온다고 가정)
-        Map<String, String> params = parseQueryParams(session.getUri().getQuery());
+        Map<String, String> params = parseQueryParams(Objects.requireNonNull(session.getUri()).getQuery());
 
         Long userId = Long.valueOf(params.get("userId"));
+        if (userRepository.findById(userId).isEmpty()) {
+            log.error("User with id {} not found", userId);
+            String sessionId = session.getId();
+            sttSessionManager.closeSession(sessionId);
+            throw new IllegalStateException("User with id " + userId + " not found");
+        }
         Long recipeId = Long.valueOf(params.get("recipeId"));
+        if (recipeRepository.findById(recipeId).isEmpty()) {
+            log.error("Recipe with id {} not found", recipeId);
+            String sessionId = session.getId();
+            sttSessionManager.closeSession(sessionId);
+            throw new IllegalStateException("Recipe with id " + recipeId + " not found");
+        }
 
         String sessionId = session.getId();
 
-        progressService.startSession(userId, recipeId, sessionId);
+        // 사용자가 해당 레시피를 이미 진행 중인지 확인 -> 진행중이면 종료가 잘 안된 것이므로 종류 후 재시도
+        Optional<RecipeProgress> progressOpt = progressService.startSession(userId, recipeId, sessionId);
+        if (progressOpt.isEmpty()) {
+            progressService.cleanup(sessionId);
+            progressOpt = progressService.startSession(userId, recipeId, sessionId);
+        }
+
+        // 한 차례 정리 후에도 Progress가 종료되지 않은 경우
+        if (progressOpt.isEmpty()) {
+            throw new IllegalStateException("레시피 진행 세션을 시작할 수 없습니다.");
+        }
 
         // STT 세션 생성: STT 결과가 나오면 해당 WebSocket으로 바로 전송
         sttSessionManager.createSession(sessionId, finalText -> {
@@ -93,9 +123,20 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        String sessionId = session.getId();
-        sttSessionManager.closeSession(sessionId);
-        log.info("[WS] voice socket closed: {}", sessionId);
+        safeCleanup(session);
+        log.info("[WS] voice socket closed: {}", session.getId());
+    }
+
+    /**
+     * 네트워크 에러와 같은 오류 발생 시 호출
+     * 에러 로그, 세션 강제 종료, 내부 리소스 정리 등 수행
+     */
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) throws IOException {
+        log.error("[WS] transport error on {}: {}", session.getId(), exception.getMessage());
+
+        safeCleanup(session); // 중복 호출 안전하게 처리됨
+        session.close(CloseStatus.SERVER_ERROR);
     }
 
     /**
@@ -111,5 +152,18 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                         kv -> URLDecoder.decode(kv[0], StandardCharsets.UTF_8),
                         kv -> URLDecoder.decode(kv[1], StandardCharsets.UTF_8)
                 ));
+    }
+
+    private void safeCleanup(WebSocketSession session) {
+        Boolean cleaned = (Boolean) session.getAttributes().get("CLEANED_UP");
+        if (cleaned != null && cleaned) {
+            return;
+        }
+
+        String sessionId = session.getId();
+        sttSessionManager.closeSession(sessionId);
+        progressService.cleanup(sessionId);
+
+        session.getAttributes().put("CLEANED_UP", true);
     }
 }

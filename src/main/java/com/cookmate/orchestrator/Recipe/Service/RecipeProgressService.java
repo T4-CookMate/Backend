@@ -8,9 +8,13 @@ import com.cookmate.orchestrator.Recipe.Repository.RecipeRepository;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeStepRepository;
 import com.cookmate.orchestrator.User.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RecipeProgressService {
@@ -21,11 +25,12 @@ public class RecipeProgressService {
     private final UserRepository userRepo;
 
     @Transactional
-    public RecipeProgress startSession(Long userId, Long recipeId, String sessionKey) {
+    public Optional<RecipeProgress> startSession(Long userId, Long recipeId, String sessionKey) {
 
-        // 이미 이 유저가 이 레시피를 진행 중이면 에러
+        // 이미 이 유저가 이 레시피를 진행 중이면 빈 Optional 반환
         if (progressRepo.existsByUserIdAndRecipeId(userId, recipeId)) {
-            throw new IllegalStateException("이미 진행 중인 레시피입니다. resumeSession()을 사용하세요.");
+            log.info("Session already started");
+            return Optional.empty();
         }
 
         // 레시피 / 첫 단계 조회
@@ -41,13 +46,14 @@ public class RecipeProgressService {
 
         // 새 progress 생성
         RecipeProgress progress = new RecipeProgress();
+
         progress.setUser(userRepo.getReferenceById(userId));
         progress.setRecipe(recipe);
         progress.setCurrentStep(firstStep);
         progress.setNextStep(nextStep);
         progress.setSessionKey(sessionKey);
 
-        return progressRepo.save(progress);
+        return Optional.of(progressRepo.save(progress));
     }
 
     @Transactional(readOnly = true)
@@ -65,5 +71,15 @@ public class RecipeProgressService {
         String instruction = nextStep.getInstruction();
 
         return "다음 단계는 " + title + " 입니다. " + instruction;
+    }
+
+    @Transactional
+    public void cleanup(String sessionKey) {
+        if (progressRepo.existsBySessionKey(sessionKey)) {
+            Long row = progressRepo.deleteRecipeProgressBySessionKey(sessionKey);
+            log.info("{}행 progress가 삭제되었습니다.", row);
+        }else{
+            log.info("현재 사용자가 진행중인 레시피가 없습니다. cleanup할 progress가 없습니다.");
+        }
     }
 }

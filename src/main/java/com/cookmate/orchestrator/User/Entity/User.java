@@ -1,5 +1,6 @@
 package com.cookmate.orchestrator.User.Entity;
 
+import com.cookmate.orchestrator.Common.BaseEntity;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -17,7 +18,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "user")
-public class User {
+public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -33,15 +34,8 @@ public class User {
     @Column(name = "email", nullable = false, length = 30)
     private String email;
 
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Size(max = 255)
-    @Column(name = "password_hash")
-    private String passwordHash;
+    @Column(name = "profile_image_url", length = 300)
+    private String profileImageUrl;
 
     @OneToMany(mappedBy = "user")
     private Set<RecipeProgress> recipeProgresses = new LinkedHashSet<>();

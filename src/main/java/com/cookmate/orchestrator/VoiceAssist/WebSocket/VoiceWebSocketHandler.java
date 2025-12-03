@@ -1,6 +1,9 @@
 package com.cookmate.orchestrator.VoiceAssist.WebSocket;
 
+import com.cookmate.orchestrator.Common.ApiPayload.Status.ErrorStatus;
+import com.cookmate.orchestrator.Common.Exception.GeneralException;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
+import com.cookmate.orchestrator.User.Entity.User;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeRepository;
 import com.cookmate.orchestrator.Recipe.Service.RecipeProgressService;
 import com.cookmate.orchestrator.User.Repository.UserRepository;
@@ -39,7 +42,6 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     private final NLUService nluService;
     private final DialogueService dialogueService;
     private final AzureTtsService azureTtsService;
-    private final UserRepository userRepository;
     private final RecipeRepository recipeRepository;
 
     /**
@@ -48,26 +50,30 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        // TODO: 로그인 구현 후 userId는 인증 로직에서 빼내옴 (지금은 쿼리파라미터에서 userId, recipeId 꺼내온다고 가정)
-        Map<String, String> params = parseQueryParams(Objects.requireNonNull(session.getUri()).getQuery());
-
-        Long userId = Long.valueOf(params.get("userId"));
-        if (userRepository.findById(userId).isEmpty()) {
-            log.error("User with id {} not found", userId);
-            String sessionId = session.getId();
-            sttSessionManager.closeSession(sessionId);
-            throw new IllegalStateException("User with id " + userId + " not found");
-        }
-        Long recipeId = Long.valueOf(params.get("recipeId"));
-        if (recipeRepository.findById(recipeId).isEmpty()) {
-            log.error("Recipe with id {} not found", recipeId);
-            String sessionId = session.getId();
-            sttSessionManager.closeSession(sessionId);
-            throw new IllegalStateException("Recipe with id " + recipeId + " not found");
-        }
-
         String sessionId = session.getId();
 
+        Long userId = (Long) session.getAttributes().get("userId");
+        User user = (User) session.getAttributes().get("user");
+        Long recipeId = (Long) session.getAttributes().get("recipeId");
+
+        // --- 인증/파라미터 검증 ---
+        if (userId == null || user == null) {
+            log.error("[WS] 인증 정보가 없습니다. userId={}, user={}", userId, user);
+            sttSessionManager.closeSession(sessionId);
+            throw new GeneralException(ErrorStatus.USER_NOT_FOUND);
+        }
+        if (recipeId == null) {
+            log.error("[WS] recipeId 쿼리 파라미터가 없습니다.");
+            sttSessionManager.closeSession(sessionId);
+            throw new GeneralException(ErrorStatus.VALIDATION_ERROR, "recipeId 쿼리 파라미터가 없습니다.");
+        }
+        if (recipeRepository.findById(recipeId).isEmpty()) {
+            log.error("Recipe with id {} not found", recipeId);
+            sttSessionManager.closeSession(sessionId);
+            throw new GeneralException(ErrorStatus.RECIPE_NOT_FOUND);
+        }
+
+        // --- 레시피 진행 세션 시작 ---
         // 사용자가 해당 레시피를 이미 진행 중인지 확인 -> 진행중이면 종료가 잘 안된 것이므로 종류 후 재시도
         Optional<RecipeProgress> progressOpt = progressService.startSession(userId, recipeId, sessionId);
         if (progressOpt.isEmpty()) {
@@ -137,21 +143,6 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
 
         safeCleanup(session); // 중복 호출 안전하게 처리됨
         session.close(CloseStatus.SERVER_ERROR);
-    }
-
-    /**
-     * 쿼리 파싱
-     */
-    private Map<String, String> parseQueryParams(String query) {
-        if (query == null || query.isBlank()) return Map.of();
-
-        return Arrays.stream(query.split("&"))
-                .map(p -> p.split("=", 2))
-                .filter(kv -> kv.length == 2)
-                .collect(Collectors.toMap(
-                        kv -> URLDecoder.decode(kv[0], StandardCharsets.UTF_8),
-                        kv -> URLDecoder.decode(kv[1], StandardCharsets.UTF_8)
-                ));
     }
 
     private void safeCleanup(WebSocketSession session) {

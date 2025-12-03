@@ -28,6 +28,10 @@ public class Tool {
     @Column(name = "is_danger", nullable = false)
     private Boolean isDanger = false;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "recipe_id", nullable = false)
+    private Recipe recipe;
+
     @OneToMany(mappedBy = "tool")
     private Set<StepAction> stepActions = new LinkedHashSet<>();
 

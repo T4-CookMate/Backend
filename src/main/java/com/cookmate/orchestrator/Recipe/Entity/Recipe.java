@@ -7,7 +7,9 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 @Getter
@@ -33,6 +35,21 @@ public class Recipe {
     @NotNull
     @Column(name = "total_minutes", nullable = false)
     private Integer totalMinutes;
+
+    @NotNull
+    @Column(name = "level", nullable = false)
+    private Integer level;
+
+    @Column(name = "tag1")
+    private String tag1;
+
+    @Column(name = "tag2")
+    private String tag2;
+
+    @OneToMany(mappedBy = "recipe",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
+    private List<Tool> tools = new ArrayList<>();
 
     @OneToMany(mappedBy = "recipe")
     private Set<RecipeCategory> recipeCategories = new LinkedHashSet<>();

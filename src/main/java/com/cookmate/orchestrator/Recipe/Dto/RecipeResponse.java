@@ -34,6 +34,7 @@ public class RecipeResponse {
     // 레시피 리스트 dto
     public record RecipeListDto(
             List<RecipeDto> recipe,
+            Integer count,
             boolean isLast
     ) {}
 

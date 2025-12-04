@@ -42,7 +42,7 @@ public class RecipeService {
                 throw new GeneralException(ErrorStatus._NOT_FOUND, "해당 키워드에 대한 레시피가 존재하지 않습니다.");
             }
             // 그 외 페이지는 그냥 빈 리스트 리턴
-            return new RecipeResponse.RecipeListDto(List.of(), true);
+            return new RecipeResponse.RecipeListDto(List.of(), 0, true);
         }
         List<Recipe> recipes = recipePage.getContent();
 
@@ -79,6 +79,7 @@ public class RecipeService {
 
         return new RecipeResponse.RecipeListDto(
                 RecipeDtos,
+                RecipeDtos.size(),
                 recipePage.isLast()
         );
     }
@@ -95,7 +96,7 @@ public class RecipeService {
                 throw new GeneralException(ErrorStatus._NOT_FOUND, "해당 사용자가 즐겨찾기한 레시피가 없습니다.");
             }
             // 그 외 페이지는 그냥 빈 리스트 리턴
-            return new RecipeResponse.RecipeListDto(List.of(), true);
+            return new RecipeResponse.RecipeListDto(List.of(), 0, true);
         }
 
         List<RecipeResponse.RecipeDto> RecipeDtos = recipePage.getContent().stream()
@@ -107,6 +108,7 @@ public class RecipeService {
 
         return new RecipeResponse.RecipeListDto(
                 RecipeDtos,
+                RecipeDtos.size(),
                 recipePage.isLast()
         );
     }

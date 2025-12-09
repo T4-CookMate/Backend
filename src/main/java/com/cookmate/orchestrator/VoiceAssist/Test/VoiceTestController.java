@@ -1,6 +1,7 @@
 package com.cookmate.orchestrator.VoiceAssist.Test;
 
 import com.cookmate.orchestrator.VoiceAssist.NLU.DialogueService;
+import com.cookmate.orchestrator.VoiceAssist.NLU.IntentResult;
 import com.cookmate.orchestrator.VoiceAssist.NLU.NLUService;
 import com.cookmate.orchestrator.VoiceAssist.TTS.AzureTtsService;
 import com.microsoft.cognitiveservices.speech.ResultReason;
@@ -9,6 +10,7 @@ import com.microsoft.cognitiveservices.speech.SpeechRecognitionResult;
 import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+@Slf4j
 @RestController
 @RequestMapping("/test")
 @RequiredArgsConstructor
@@ -58,11 +61,19 @@ public class VoiceTestController {
             String text = sttResult.getText();
             System.out.println("[STT 결과] " + text);
 
-            // 3) NLU
-            var intentResult = nluService.analyze(text);
+            // 호출 키워드 체크
+            if (!text.trim().startsWith("쿡짝꿍") || !text.trim().startsWith("국자꾼")) {
+                log.info("[STT] 호출어 없음 → 무시됨: {}", text);
+            }
+
+            // 호출어 "쿡짝꿍" 제거
+            String cleanedText = text.replaceFirst("^쿡짝꿍", "").trim();
+
+            // STT 결과 -> NLU 분석 -> 질문 의도 파악
+            IntentResult intent = nluService.analyze(cleanedText);
 
             // 4) Dialogue (세션키는 일단 테스트용으로 dummy-session)
-            String answer = dialogueService.handleIntent("dummy-session", intentResult);
+            String answer = dialogueService.handleIntent("dummy-session", intent);
 
             byte[] wav = azureTtsService.synthesizeToWav(answer);
             return ResponseEntity

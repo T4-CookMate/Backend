@@ -1,5 +1,6 @@
 package com.cookmate.orchestrator.Ingredient.Entity;
 
+import com.cookmate.orchestrator.Recipe.Entity.Location;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeIngredient;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
 import jakarta.persistence.*;
@@ -23,6 +24,10 @@ public class IngredientRuntimeStatus {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipe_ingredient_id")
     private RecipeIngredient recipeIngredient;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id")
+    private Location location;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ingredient_status_id")

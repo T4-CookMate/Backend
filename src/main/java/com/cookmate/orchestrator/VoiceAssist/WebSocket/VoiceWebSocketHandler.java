@@ -74,7 +74,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
         }
 
         // --- 레시피 진행 세션 시작 ---
-        // 사용자가 해당 레시피를 이미 진행 중인지 확인 -> 진행중이면 종료가 잘 안된 것이므로 종류 후 재시도
+        // 사용자가 해당 레시피를 이미 진행 중인지 확인 -> 진행중이면 종료가 잘 안된 것이므로 종료 후 재시도
         Optional<RecipeProgress> progressOpt = progressService.startSession(userId, recipeId, sessionId);
         if (progressOpt.isEmpty()) {
             progressService.cleanup(sessionId);
@@ -83,14 +83,23 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
 
         // 한 차례 정리 후에도 Progress가 종료되지 않은 경우
         if (progressOpt.isEmpty()) {
-            throw new IllegalStateException("레시피 진행 세션을 시작할 수 없습니다.");
+            throw new GeneralException(ErrorStatus.SESSION_ALREADY_START);
         }
 
         // STT 세션 생성: STT 결과가 나오면 해당 WebSocket으로 바로 전송
         sttSessionManager.createSession(sessionId, finalText -> {
             try {
+                // 호출 키워드 체크
+                if (!finalText.trim().startsWith("쿡짝꿍") && !finalText.trim().startsWith("국자꾼")) {
+                    log.info("[STT] 호출어 없음 → 무시됨: {}", finalText);
+                    return; // 아래 로직 모두 스킵
+                }
+
+                // 호출어 "쿡짝꿍" 제거
+                String cleanedText = finalText.replaceFirst("^쿡짝꿍", "").trim();
+
                 // STT 결과 -> NLU 분석 -> 질문 의도 파악
-                IntentResult intent = nluService.analyze(finalText);
+                IntentResult intent = nluService.analyze(cleanedText);
 
                 // intent에 맞게 답변 텍스트 만들기
                 String answerText = dialogueService.handleIntent(sessionId, intent);
@@ -103,7 +112,9 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 log.error("[WS] failed to send STT result to client: {}", e.getMessage());
                 try {
                     session.sendMessage(new TextMessage("서버에서 음성 응답 생성 중 오류가 발생했어요."));
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                    throw new GeneralException(ErrorStatus._INTERNAL_SERVER_ERROR, "STT 중 발생한 오류 메세지 전달에 실패했어요.");
+                }
             }
         });
         log.info("[WS] voice socket connected: {}", sessionId);

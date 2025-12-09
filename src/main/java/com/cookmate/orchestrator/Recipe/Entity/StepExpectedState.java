@@ -27,6 +27,14 @@ public class StepExpectedState {
     @JoinColumn(name = "next_status_id", nullable = false)
     private IngredientStatus nextStatus;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "current_location_id")
+    private Location currentLocation;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "next_location_id")
+    private Location nextLocation;
+
     @Size(max = 255)
     @Column(name = "evidence_hint")
     private String evidenceHint;

@@ -90,7 +90,7 @@ public class RecipeResponse {
         public static RecipeIngredientDto from(RecipeIngredient recipeIngredient) {
             return new RecipeIngredientDto(
                     recipeIngredient.getId(),
-                    recipeIngredient.getIngredient().getName()
+                    recipeIngredient.getIngredient().getKoreanName()
             );
         }
     }

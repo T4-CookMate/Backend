@@ -25,9 +25,14 @@ public enum ErrorStatus implements BaseCode {
 
     // INPUT ERROR
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "VALID401", "입력값이 올바르지 않습니다."),
+    NO_INGREDIENT(HttpStatus.BAD_REQUEST, "VALID401", "재료 입력이 없습니다."),
 
     // RECIPE ERROR
     RECIPE_NOT_FOUND(HttpStatus.NOT_FOUND, "RECIPE404", "일치하는 레시피를 찾을 수 없습니다."),
+    NO_EVIDENCE(HttpStatus.INTERNAL_SERVER_ERROR, "RECIPE500", "레시피 힌트가 정의되지 않았습니다. "),
+    NO_RUNTIME_STATUS(HttpStatus.INTERNAL_SERVER_ERROR, "RECIPE501", "해당 재료의 실시간 상태 정보가 없습니다."),
+    NO_EXPECTED_STATE(HttpStatus.INTERNAL_SERVER_ERROR, "RECIPE502", "해당 재료의 예상 상태 정보가 없습니다."),
+    NO_RECIPE_PROGRESS(HttpStatus.INTERNAL_SERVER_ERROR, "RECIPE503", "진행 중인 레시피가 없습니다."),
 
     // SESSION ERROR
     SESSION_ALREADY_START(HttpStatus.INTERNAL_SERVER_ERROR, "SESSION500", "세션이 정리되지 않습니다.");

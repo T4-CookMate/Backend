@@ -1,5 +1,7 @@
 package com.cookmate.orchestrator.Recipe.Service;
 
+import com.cookmate.orchestrator.Common.ApiPayload.Status.ErrorStatus;
+import com.cookmate.orchestrator.Common.Exception.GeneralException;
 import com.cookmate.orchestrator.Ingredient.Entity.Ingredient;
 import com.cookmate.orchestrator.Ingredient.Entity.IngredientRuntimeStatus;
 import com.cookmate.orchestrator.Ingredient.Entity.IngredientStatus;
@@ -49,17 +51,20 @@ public class IngredientStatusService {
             return ingredientName + "는 현재 단계에서는 사용하지 않는 재료예요.";
         }
 
-        StepExpectedState stepExpectedState =
-                stepExpectedStateRepo.findByRecipeStepAndRecipeIngredient(currentStep, recipeIngredient);
-        if (stepExpectedState == null) {
-            return ingredientName + "에 대한 상태 정보가 이 단계에는 정의되어 있지 않아요.";
-        }
+        StepExpectedState stepExpectedState = stepExpectedStateRepo
+                .findByRecipeStepAndRecipeIngredient(currentStep, recipeIngredient)
+                .orElseThrow(() -> new GeneralException(
+                        ErrorStatus.NO_EXPECTED_STATE,
+                        ingredientName + "에 대한 상태 정보가 이 단계에는 정의되어 있지 않아요."
+                ));
 
         IngredientStatus expectedCurrent = stepExpectedState.getCurrentStatus();
         IngredientStatus expectedNext = stepExpectedState.getNextStatus();
 
-        IngredientRuntimeStatus runtimeStatus =
-                ingredientRuntimeStatusRepo.findByProgressAndRecipeIngredient(progress, recipeIngredient);
+        IngredientRuntimeStatus runtimeStatus = ingredientRuntimeStatusRepo
+                .findByProgressAndRecipeIngredient(progress, recipeIngredient)
+                .orElseThrow(() -> new GeneralException(
+                        ErrorStatus._INTERNAL_SERVER_ERROR));
 
         if (runtimeStatus == null) {
             return ingredientName + "의 현재 상태를 아직 정확히 인식하지 못했어요. " +

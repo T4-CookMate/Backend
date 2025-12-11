@@ -9,6 +9,7 @@ import java.util.Optional;
 @Repository
 public interface RecipeProgressRepository extends JpaRepository<RecipeProgress, Long> {
     Boolean existsByUserIdAndRecipeId(Long userId, Long recipeId);
+    RecipeProgress findByUserId(Long userId);
     Boolean existsBySessionKey (String sessionKey);
     Optional<RecipeProgress> findBySessionKey(String sessionKey);
     Long deleteRecipeProgressBySessionKey(String sessionKey);

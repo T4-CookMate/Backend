@@ -1,6 +1,5 @@
 package com.cookmate.orchestrator.Recipe.Dto;
 
-import com.cookmate.orchestrator.Ingredient.Entity.Ingredient;
 import com.cookmate.orchestrator.Recipe.Entity.Recipe;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeIngredient;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeStep;

@@ -1,5 +1,6 @@
 package com.cookmate.orchestrator.Recipe.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -22,6 +23,7 @@ public class RecipeStep {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recipe_id", nullable = false)
+    @JsonIgnore
     private Recipe recipe;
 
     @NotNull
@@ -37,6 +39,9 @@ public class RecipeStep {
     @Lob
     @Column(name = "instruction", nullable = false)
     private String instruction;
+
+    @Column(name = "timer")
+    private Integer timer;
 
     @OneToMany(mappedBy = "currentStep")
     private Set<RecipeProgress> recipeProgresses = new LinkedHashSet<>();

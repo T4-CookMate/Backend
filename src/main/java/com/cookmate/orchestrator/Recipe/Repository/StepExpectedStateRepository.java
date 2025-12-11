@@ -6,7 +6,10 @@ import com.cookmate.orchestrator.Recipe.Entity.StepExpectedState;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface StepExpectedStateRepository extends JpaRepository<StepExpectedState, Long> {
-    StepExpectedState findByRecipeStepAndRecipeIngredient(RecipeStep currentStep, RecipeIngredient recipeIngredient);
+    Optional<StepExpectedState> findByRecipeStepAndRecipeIngredient(RecipeStep currentStep, RecipeIngredient recipeIngredient);
+    Optional<StepExpectedState> findByRecipeStep (RecipeStep currentStep);
 }

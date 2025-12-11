@@ -2,6 +2,7 @@ package com.cookmate.orchestrator.Recipe.Entity;
 
 import com.cookmate.orchestrator.Ingredient.Entity.Ingredient;
 import com.cookmate.orchestrator.Ingredient.Entity.Unit;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -23,6 +24,7 @@ public class RecipeIngredient {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "recipe_id", nullable = false)
+    @JsonIgnore
     private Recipe recipe;
 
     @NotNull

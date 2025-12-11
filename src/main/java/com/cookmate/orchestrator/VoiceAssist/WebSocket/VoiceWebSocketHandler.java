@@ -95,8 +95,8 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                     return; // 아래 로직 모두 스킵
                 }
 
-                // 호출어 "쿡짝꿍" 제거
-                String cleanedText = finalText.replaceFirst("^쿡짝꿍", "").trim();
+                // 호출어 "짝꿍아" 제거
+                String cleanedText = finalText.replaceFirst("^짝꿍아", "").trim();
 
                 // STT 결과 -> NLU 분석 -> 질문 의도 파악
                 IntentResult intent = nluService.analyze(cleanedText);

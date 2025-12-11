@@ -1,6 +1,13 @@
 package com.cookmate.orchestrator.Recipe.Service;
 
+import com.cookmate.orchestrator.Common.ApiPayload.Status.ErrorStatus;
+import com.cookmate.orchestrator.Common.Exception.GeneralException;
+import com.cookmate.orchestrator.Ingredient.Entity.IngredientRuntimeStatus;
+import com.cookmate.orchestrator.Ingredient.Entity.IngredientStatus;
+import com.cookmate.orchestrator.Ingredient.Repository.IngredientRuntimeStatusRepository;
+import com.cookmate.orchestrator.Ingredient.Repository.IngredientStatusRepository;
 import com.cookmate.orchestrator.Recipe.Entity.Recipe;
+import com.cookmate.orchestrator.Recipe.Entity.RecipeIngredient;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeStep;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeProgressRepository;
@@ -12,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -23,6 +32,8 @@ public class RecipeProgressService {
     private final RecipeRepository recipeRepo;
     private final RecipeStepRepository stepRepo;
     private final UserRepository userRepo;
+    private final IngredientStatusRepository ingredientStatusRepository;
+    private final IngredientRuntimeStatusRepository ingredientRuntimeStatusRepository;
 
     @Transactional
     public Optional<RecipeProgress> startSession(Long userId, Long recipeId, String sessionKey) {
@@ -40,18 +51,40 @@ public class RecipeProgressService {
                 .findFirstByRecipeOrderByStepIndexAsc(recipe)
                 .orElseThrow(() -> new IllegalStateException("레시피 단계가 없습니다."));
 
-        RecipeStep nextStep = stepRepo
-                .findNextStep(recipeId, firstStep.getStepIndex())
-                .orElse(firstStep);   // 마지막 단계면 자기 자신
+        Optional<RecipeStep> nextStepOpt =
+                stepRepo.findNextStep(recipeId, firstStep.getStepIndex());
 
         // 새 progress 생성
         RecipeProgress progress = new RecipeProgress();
-
         progress.setUser(userRepo.getReferenceById(userId));
         progress.setRecipe(recipe);
         progress.setCurrentStep(firstStep);
-        progress.setNextStep(nextStep);
+        progress.setNextStep(nextStepOpt.orElse(null));   // 마지막 단계면 null
         progress.setSessionKey(sessionKey);
+
+        // progress 저장
+        progressRepo.save(progress);
+
+        // UNALLOCATED 상태 엔티티 조회
+        IngredientStatus unallocatedStatus = ingredientStatusRepository
+                .findByCode("UNALLOCATED")
+                .orElseThrow(() -> new GeneralException(ErrorStatus._NOT_FOUND, "UNALLOCATED 상태가 IngredientStatus 테이블에 없습니다."));
+
+        // 레시피에 사용되는 재료들에 대해 runtime status 초기화
+        List<IngredientRuntimeStatus> runtimeList = new ArrayList<>();
+
+        for (RecipeIngredient recipeIngredient : recipe.getRecipeIngredients()) {
+
+            IngredientRuntimeStatus runtimeStatus = new IngredientRuntimeStatus();
+            runtimeStatus.setProgress(progress);                 // 이 세션의 진행상황
+            runtimeStatus.setRecipeIngredient(recipeIngredient); // 어떤 재료에 대한 상태인지
+            runtimeStatus.setStatus(unallocatedStatus);          // 초기 상태 = UNALLOCATED
+            runtimeStatus.setLocation(null);                     // 위치는 아직 모름
+
+            runtimeList.add(runtimeStatus);
+        }
+
+        ingredientRuntimeStatusRepository.saveAll(runtimeList);
 
         return Optional.of(progressRepo.save(progress));
     }
@@ -75,11 +108,25 @@ public class RecipeProgressService {
 
     @Transactional
     public void cleanup(String sessionKey) {
-        if (progressRepo.existsBySessionKey(sessionKey)) {
-            Long row = progressRepo.deleteRecipeProgressBySessionKey(sessionKey);
-            log.info("{}행 progress가 삭제되었습니다.", row);
-        }else{
+
+        Optional<RecipeProgress> progressOpt = progressRepo.findBySessionKey(sessionKey);
+
+        if (progressOpt.isEmpty()) {
             log.info("현재 사용자가 진행중인 레시피가 없습니다. cleanup할 progress가 없습니다.");
+            return;
         }
+
+        RecipeProgress progress = progressOpt.get();
+
+        // 1) 해당 progress를 가진 모든 IngredientRuntimeStatus 삭제
+        int deletedRuntimeRows = ingredientRuntimeStatusRepository
+                .deleteAllByProgress(progress);
+
+        log.info("IngredientRuntimeStatus {}행이 삭제되었습니다.", deletedRuntimeRows);
+
+        // 2) progress 삭제
+        Long deletedProgressRows = progressRepo.deleteRecipeProgressBySessionKey(sessionKey);
+
+        log.info("RecipeProgress {}행이 삭제되었습니다.", deletedProgressRows);
     }
 }

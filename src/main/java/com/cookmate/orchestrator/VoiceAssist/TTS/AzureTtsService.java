@@ -11,20 +11,25 @@ public class AzureTtsService {
     private final SpeechConfig speechConfig;
 
     /**
-     * 텍스트를 Azure TTS로 합성해서 오디오 바이트(byte[])로 반환
-     * - 현재는 WAV(RIFF) 형식 기준 예시
-     *   (Raw PCM으로 바꾸고 싶으면 OutputFormat만 바꿔주면 됨)
+     * 텍스트를 Azure TTS로 합성해서
+     * 16kHz / 16bit / mono **raw PCM** 바이트 배열로 반환
      */
-    public byte[] synthesizeToWav(String text) throws Exception {
-        // 필요하다면 여기서 한번만 포맷 지정
-        // speechConfig.setSpeechSynthesisOutputFormat(
-        //         SpeechSynthesisOutputFormat.Riff16Khz16BitMonoPcm);
+    public byte[] synthesizeToRawPcm(String text) throws Exception {
+        // 출력 포맷을 "헤더 없는" Raw PCM 으로 설정
+        //    - 16000 Hz
+        //    - 16 bit
+        //    - mono
+        speechConfig.setSpeechSynthesisOutputFormat(
+                SpeechSynthesisOutputFormat.Raw16Khz16BitMonoPcm
+        );
 
         try (SpeechSynthesizer synthesizer = new SpeechSynthesizer(speechConfig, null)) {
             SpeechSynthesisResult result = synthesizer.SpeakTextAsync(text).get();
 
             if (result.getReason() == ResultReason.SynthesizingAudioCompleted) {
-                return result.getAudioData();  // byte[]
+                // 이 바이트 배열이 **헤더 없는 raw PCM** 이라서
+                // WebSocket BinaryMessage 로 그대로 보내면 됨
+                return result.getAudioData();
             } else {
                 throw new IllegalStateException("TTS 실패: " + result.getReason());
             }
@@ -32,18 +37,18 @@ public class AzureTtsService {
     }
 
     /**
-     * 프론트에서 raw PCM(헤더 없는)으로 바로 재생하고 싶다면
-     * OutputFormat을 Raw16Khz16BitMonoPcm 등으로 바꿔서 사용
+     * 참고: 필요하면 WAV(RIFF) 형식도 같이 쓸 수 있게 남겨두는 버전
      */
-    public byte[] synthesizeToRawPcm(String text) throws Exception {
+    public byte[] synthesizeToWav(String text) throws Exception {
         speechConfig.setSpeechSynthesisOutputFormat(
-                SpeechSynthesisOutputFormat.Raw16Khz16BitMonoPcm);
+                SpeechSynthesisOutputFormat.Riff16Khz16BitMonoPcm
+        );
 
         try (SpeechSynthesizer synthesizer = new SpeechSynthesizer(speechConfig, null)) {
             SpeechSynthesisResult result = synthesizer.SpeakTextAsync(text).get();
 
             if (result.getReason() == ResultReason.SynthesizingAudioCompleted) {
-                return result.getAudioData();
+                return result.getAudioData();  // WAV 바이트
             } else {
                 throw new IllegalStateException("TTS 실패: " + result.getReason());
             }

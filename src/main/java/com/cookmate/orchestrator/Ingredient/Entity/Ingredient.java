@@ -26,6 +26,9 @@ public class Ingredient {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "korean_name", nullable = false)
+    private String koreanName;
+
     @OneToMany(mappedBy = "ingredient")
     private Set<ActionIngredient> actionIngredients = new LinkedHashSet<>();
 

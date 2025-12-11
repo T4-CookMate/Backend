@@ -90,25 +90,38 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
         // STT 세션 생성: STT 결과가 나오면 해당 WebSocket으로 바로 전송
         sttSessionManager.createSession(sessionId, finalText -> {
             try {
-                // 호출 키워드 체크
-                if (!finalText.trim().startsWith("쿡짝꿍") && !finalText.trim().startsWith("국자꾼")) {
-                    log.info("[STT] 호출어 없음 → 무시됨: {}", finalText);
-                    return; // 아래 로직 모두 스킵
+                String text = finalText.trim();
+                log.info("[STT] final text: {}", text);
+
+                // 1) 호출어 여부 판단
+                boolean hasWakeWord =
+                        text.startsWith("짝꿍아")
+                                || text.startsWith("쿡짝꿍")
+                                || text.startsWith("국자꾼");   // 오인식 대비
+
+                if (!hasWakeWord) {
+                    // 호출어 없으면 그냥 무시하고 끝
+                    log.info("[STT] 호출어 없음 → 무시: {}", text);
+                    return;
                 }
 
-                // 호출어 "짝꿍아" 제거
-                String cleanedText = finalText.replaceFirst("^짝꿍아", "").trim();
+                // 2) 실제 호출어 부분 제거
+                String cleanedText = text
+                        .replaceFirst("^짝꿍아", "")
+                        .replaceFirst("^쿡짝꿍", "")
+                        .replaceFirst("^국자꾼", "")
+                        .trim();
 
-                // STT 결과 -> NLU 분석 -> 질문 의도 파악
+                log.info("[STT] 호출어 제거 후 질의: {}", cleanedText);
+
+                // 3) NLU → 답변 생성
                 IntentResult intent = nluService.analyze(cleanedText);
-
-                // intent에 맞게 답변 텍스트 만들기
                 String answerText = dialogueService.handleIntent(sessionId, intent);
 
-                // TTS: 답변 텍스트 → 오디오 바이트
+                // 4) TTS → 오디오 전송
                 byte[] audioBytes = azureTtsService.synthesizeToRawPcm(answerText);
-
                 session.sendMessage(new BinaryMessage(audioBytes));
+
             } catch (Exception e) {
                 log.error("[WS] failed to send STT result to client: {}", e.getMessage());
                 try {

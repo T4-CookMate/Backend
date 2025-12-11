@@ -81,6 +81,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
             progressOpt = progressService.startSession(userId, recipeId, sessionId);
         }
 
+
         // 한 차례 정리 후에도 Progress가 종료되지 않은 경우
         if (progressOpt.isEmpty()) {
             throw new GeneralException(ErrorStatus.SESSION_ALREADY_START);

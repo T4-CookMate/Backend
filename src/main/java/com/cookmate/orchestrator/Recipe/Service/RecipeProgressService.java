@@ -107,8 +107,11 @@ public class RecipeProgressService {
         return "첫 단계는 " + title + " 입니다. " + instruction;
     }
 
+    /**
+     * 다음 단계 질문 응답 생성 후 이동 여부 묻기
+     */
     @Transactional
-    public String getNextStep (String sessionKey){
+    public String nextStepQuestionResponse (String sessionKey){
         RecipeProgress progress = progressRepo.findBySessionKey(sessionKey)
                 .orElseThrow(() -> new IllegalStateException("세션 진행 정보가 없습니다."));
 
@@ -131,6 +134,9 @@ public class RecipeProgressService {
         return "다음 단계는 " + title + " 입니다. " + instruction + "다음 단계로 넘어갈까요?";
     }
 
+    /**
+     * 실제 단계 이동 (set)
+     */
     @Transactional
     public String setNextStep(String sessionKey){
         RecipeProgress progress = progressRepo.findBySessionKey(sessionKey)
@@ -159,7 +165,9 @@ public class RecipeProgressService {
         if(afterNextStepOpt.isPresent()) {
             progress.setNextStep(afterNextStepOpt.orElse(null));
         }
-        return "다음 단계로 넘어가겠습니다.";
+        String title = nextStep.getTitle();
+        String instruction = nextStep.getInstruction();
+        return "다음 단계는 " + title + " 입니다. "+ instruction;
     }
 
     @Transactional

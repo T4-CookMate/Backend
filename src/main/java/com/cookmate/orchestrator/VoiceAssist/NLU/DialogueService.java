@@ -26,9 +26,9 @@ public class DialogueService {
         return switch (type) {
             case START -> handleStart(sessionId);
             case NEXT_STEP -> handleNextStep(sessionId);
+            case NEXT_STEP_QUESTION -> handleNextStepQuestion(sessionId);
             case INGREDIENT_STATE -> handleIngredientState(sessionId, slots);
             case DANGER_CHECK -> handleDangerCheck(sessionId, slots);
-            case ANSWER -> handleAnswer(sessionId);
             case UNKNOWN -> handleUnknown(sessionId, intentResult.originalText());
         };
     }
@@ -41,17 +41,17 @@ public class DialogueService {
     }
 
     /**
-     * 현재 요리 진행 상황 체크 후 응답 생성
+     * 실제 단계 이동
      */
-    private String handleNextStep(String sessionId) {
-        return progressService.getNextStep(sessionId);
+    public String handleNextStep(String sessionId) {
+        return progressService.setNextStep(sessionId);
     }
 
     /**
-     * 응답 처리
+     * 현재 요리 진행 상황 체크 후 응답 생성
      */
-    public String handleAnswer(String sessionId){
-        return progressService.setNextStep(sessionId);
+    private String handleNextStepQuestion(String sessionId) {
+        return progressService.nextStepQuestionResponse(sessionId);
     }
 
     /**

@@ -47,12 +47,14 @@ public class NLUService {
 
         /** 3. Intent 분류 */
         if(isStart(normalized)){
-            return new IntentResult(IntentType.START, slots, text);         // 레시피 시작
+            return new IntentResult(IntentType.START, slots, text);             // 레시피 시작
         }
         if (isNextStepQuestion(normalized)) {
             return new IntentResult(IntentType.NEXT_STEP, slots, text);         // 다음 단계 이동
         }
-
+        if(isAnswered(normalized)){
+            return new IntentResult(IntentType.ANSWER, slots, text);
+        }
         if (isIngredientStateQuestion(normalized)) {
             return new IntentResult(IntentType.INGREDIENT_STATE, slots, text);  // 재료 상태 질문
         }
@@ -93,6 +95,17 @@ public class NLUService {
                 || normalized.contains("이제뭐")
                 || normalized.contains("다음에뭐")
                 || normalized.contains("다음으로뭐");
+    }
+
+    /**
+     * 대답 처리
+     */
+    private boolean isAnswered(String normalized) {
+        return normalized.contains("웅")
+                || normalized.contains("응")
+                || normalized.contains("으")
+                || normalized.contains("잉")
+                || normalized.contains("엉");
     }
 
     /**

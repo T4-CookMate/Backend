@@ -28,7 +28,6 @@ public class VoiceWebSocketSender {
         if (s == null || !s.isOpen()) return;
 
         s.sendMessage(new BinaryMessage(pcm));
-        log.info("pcm sent: {}", pcm);
     }
 }
 

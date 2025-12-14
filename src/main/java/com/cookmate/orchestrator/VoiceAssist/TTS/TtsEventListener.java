@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 
 @RequiredArgsConstructor
 @Component
@@ -16,7 +14,6 @@ public class TtsEventListener {
 
     @Async
     @EventListener
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onTtsRequest(TtsRequestEvent event) {
         try {
             byte[] pcm = azureTtsService.synthesizeToRawPcm(event.text());

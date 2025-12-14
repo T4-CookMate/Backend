@@ -137,8 +137,8 @@ public class IngredientService {
                     && state.getNextLocation().equals(runtimeStatus.getLocation());
 
             log.warn("[INGR] CHECK LOCATION expected={}, actual={}, met={}",
-                    state.getNextLocation(),
-                    runtimeStatus.getLocation(),
+                    state.getNextLocation().getName(),
+                    runtimeStatus.getLocation().getName(),
                     conditionMet);
 
         } else if ("STATUS".equals(evidenceHint)) {
@@ -146,8 +146,8 @@ public class IngredientService {
                     && state.getNextStatus().equals(runtimeStatus.getStatus());
 
             log.warn("[INGR] CHECK STATUS expected={}, actual={}, met={}",
-                    state.getNextStatus(),
-                    runtimeStatus.getStatus(),
+                    state.getNextStatus().getName(),
+                    runtimeStatus.getStatus().getName(),
                     conditionMet);
 
         } else {

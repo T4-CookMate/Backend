@@ -13,10 +13,12 @@ import com.cookmate.orchestrator.VoiceAssist.NLU.DialogueService;
 import com.cookmate.orchestrator.VoiceAssist.NLU.IntentResult;
 import com.cookmate.orchestrator.VoiceAssist.NLU.NLUService;
 import com.cookmate.orchestrator.VoiceAssist.TTS.AzureTtsService;
+import com.cookmate.orchestrator.VoiceAssist.TTS.TtsRequestEvent;
 import com.cookmate.orchestrator.VoiceAssist.TTS.VoiceWebSocketSender;
 import com.cookmate.orchestrator.VoiceAssist.Vision.VisionPromptSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.BinaryWebSocketHandler;
@@ -48,6 +50,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     private final RecipeRepository recipeRepository;
     private final VisionPromptSender visionPromptSender;
     private final VoiceWebSocketSender sender;
+    private final ApplicationEventPublisher publisher;
 
     /**
      * 새로운 WebSocket 연결 생성 시 호출 -> Azure continuous STT 세션 생성
@@ -141,6 +144,12 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 }
             }
         });
+
+        publisher.publishEvent(new TtsRequestEvent(
+                sessionId,
+                "요리 시작을 원하시면 '시작'이라고 말씀해주세요."
+        ));
+
         log.info("[WS] voice socket connected: {}", sessionId);
     }
 

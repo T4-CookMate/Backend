@@ -46,6 +46,9 @@ public class NLUService {
         }
 
         /** 3. Intent 분류 */
+        if(isStart(normalized)){
+            return new IntentResult(IntentType.START, slots, text);         // 레시피 시작
+        }
         if (isNextStepQuestion(normalized)) {
             return new IntentResult(IntentType.NEXT_STEP, slots, text);         // 다음 단계 이동
         }
@@ -68,6 +71,13 @@ public class NLUService {
         return text
                 .replace(" ", "")
                 .toLowerCase(Locale.KOREAN);
+    }
+
+    /**
+     * 요리 시작
+     */
+    private boolean isStart(String normalized) {
+        return normalized.contains("시작");
     }
 
     /**

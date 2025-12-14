@@ -76,19 +76,19 @@ public class IngredientStatusService {
 
         // 1) 레시피 상 current 상태와 일치
         if (actual.getId().equals(expectedCurrent.getId())) {
-            return ingredientName + "은 지금 " + actual.getCode() +
-                    " 상태라서, 레시피 진행 상황과 잘 맞아요.";
+            return ingredientName + "은 지금 " + actual.getName() +
+                    " 상태입니다. ";
         }
 
         // 2) 레시피 상 next 상태까지 온 경우
         if (actual.getId().equals(expectedNext.getId())) {
-            return ingredientName + "은 이미 " + actual.getCode() +
+            return ingredientName + "은 이미 " + actual.getName() +
                     " 상태예요. 다음 단계로 넘어가셔도 괜찮아요.";
         }
 
         // 3) 그 외: 레시피 기대와 다른 상태
-        return ingredientName + "은 지금 " + actual.getCode() +
-                " 상태입니다, 원래" + expectedCurrent.getCode() + "상태여야 해요.";
+        return ingredientName + "은 지금 " + actual.getName() +
+                " 상태입니다, 원래" + expectedCurrent.getName() + "상태여야 해요.";
 
     }
 }

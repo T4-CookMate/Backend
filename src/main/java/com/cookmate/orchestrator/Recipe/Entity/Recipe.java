@@ -32,6 +32,11 @@ public class Recipe {
     @Column(name = "description", nullable = false)
     private String description;
 
+    @Lob
+    @NotNull
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
+    private String prompt;
+
     @NotNull
     @Column(name = "total_minutes", nullable = false)
     private Integer totalMinutes;

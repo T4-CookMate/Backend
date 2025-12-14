@@ -110,6 +110,8 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 boolean hasWakeWord =
                         text.startsWith("짝꿍아")
                                 || text.startsWith("짝꿍화")
+                                || text.startsWith("자꾸만")
+                                || text.startsWith("딱 공학")
                                 || text.startsWith("짝궁아");
 
                 if (!hasWakeWord) {

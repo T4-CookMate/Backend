@@ -11,6 +11,7 @@ import com.cookmate.orchestrator.Recipe.Entity.*;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeProgressRepository;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeStepRepository;
 import com.cookmate.orchestrator.Recipe.Repository.StepExpectedStateRepository;
+import com.cookmate.orchestrator.Recipe.Service.RecipeProgressService;
 import com.cookmate.orchestrator.User.Entity.User;
 import com.cookmate.orchestrator.VoiceAssist.TTS.TtsRequestEvent;
 import lombok.RequiredArgsConstructor;
@@ -32,16 +33,16 @@ public class IngredientService {
     private final IngredientRuntimeStatusRepository ingredientRuntimeStatusRepository;
     private final RecipeStepRepository recipeStepRepository;
     private final ApplicationEventPublisher publisher;
+    private final RecipeProgressService progressService;
 
     @Transactional
     public RecipeRuntimeResponse updateIngredientsInfo(User user, Map<String, IngredientInfoDto> ingredients) {
         /** 1) 현재 사용자의 레시피 진행상황 조회 */
         RecipeProgress currentRecipeProgress = recipeProgressRepository.findByUserId(user.getId());
-        String sessionKey = currentRecipeProgress.getSessionKey();
-
         if (currentRecipeProgress == null) {
             throw new GeneralException(ErrorStatus.NO_RECIPE_PROGRESS, "진행 중인 레시피가 없습니다.");
         }
+        String sessionKey = currentRecipeProgress.getSessionKey();
 
         Recipe currentRecipe = currentRecipeProgress.getRecipe();
         RecipeStep currentStep  = currentRecipeProgress.getCurrentStep();
@@ -52,24 +53,21 @@ public class IngredientService {
 
         // 해당 단계에 기대 상태 자체가 없으면 → 10초 뒤에 다음 단계로 그냥 넘어감
         if (stateOpt.isEmpty()) {
-            Integer timerSec = currentStep.getTimer(); // Integer 타입 (초 단위)
+            Integer timerSec = currentStep.getTimer();
 
-            int sleepMillis = (timerSec != null && timerSec > 0)
-                    ? timerSec * 1000      // 초 → 밀리초 변환
-                    : 0;                    // null 또는 0이면 바로 진행
-
-            log.info("Step {} 은 기대 재료 상태가 없으므로 {}초 대기 후 다음 단계로 이동합니다.",
-                    currentStep.getStepIndex(),
-                    timerSec != null ? timerSec : 0);
-
-            try {
-                if (sleepMillis > 0) {
-                    Thread.sleep(sleepMillis);
+            if (timerSec != null && timerSec > 0) {
+                if (!progressService.isAutoNextScheduled(sessionKey)) {
+                    progressService.scheduleAutoNextStep(sessionKey, currentStep.getId(), timerSec);
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+
+                // 지금은 그냥 대기 상태 유지
+                return RecipeRuntimeResponse.from(
+                        false,
+                        currentRecipeProgress
+                );
             }
 
+            // 타이머 없으면 즉시 다음 단계
             return goToNextStep(sessionKey, currentRecipeProgress, currentRecipe, currentStep);
         }
 
@@ -138,7 +136,6 @@ public class IngredientService {
                 false,
                 currentRecipeProgress
         );
-
     }
 
     private RecipeRuntimeResponse goToNextStep(

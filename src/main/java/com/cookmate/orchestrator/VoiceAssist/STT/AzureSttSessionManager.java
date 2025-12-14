@@ -53,7 +53,6 @@ public class AzureSttSessionManager {
             return;
         }
 
-        // Azure pushStream.write()로 PCM을 밀어 넣는 작업
         session.pushAudio(pcmChunk);
     }
 

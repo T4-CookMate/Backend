@@ -123,8 +123,33 @@ public class RecipeProgressService {
             log.info("nextStep이 없습니다.");
             return "마지막 단계입니다.";
         }
-
         RecipeStep nextStep = nextStepOpt.get();
+
+        // title + instruction 조합해서 음성용 텍스트로 변환
+        String title = nextStep.getTitle();
+        String instruction = nextStep.getInstruction();
+        return "다음 단계는 " + title + " 입니다. " + instruction + "다음 단계로 넘어갈까요?";
+    }
+
+    @Transactional
+    public String setNextStep(String sessionKey){
+        RecipeProgress progress = progressRepo.findBySessionKey(sessionKey)
+                .orElseThrow(() -> new IllegalStateException("세션 진행 정보가 없습니다."));
+
+        // 현재 레시피 조회
+        Recipe currentRecipe = progress.getRecipe();
+        RecipeStep currentStep = progress.getCurrentStep();
+
+        Optional<RecipeStep> nextStepOpt =
+                stepRepo.findNextStep(currentRecipe.getId(), currentStep.getStepIndex());
+
+        if (nextStepOpt.isEmpty()) {
+            log.info("nextStep이 없습니다.");
+            return "마지막 단계입니다.";
+        }
+        RecipeStep nextStep = nextStepOpt.get();
+
+        // 현재 스텝을 다음 스텝으로 저장
         progress.setCurrentStep(nextStep);
 
         // 그 다음(“다다음”) 스텝 설정 (없으면 null)
@@ -134,12 +159,7 @@ public class RecipeProgressService {
         if(afterNextStepOpt.isPresent()) {
             progress.setNextStep(afterNextStepOpt.orElse(null));
         }
-
-        // title + instruction 조합해서 음성용 텍스트로 변환
-        String title = nextStep.getTitle();
-        String instruction = nextStep.getInstruction();
-
-        return "다음 단계는 " + title + " 입니다. " + instruction + "다음 단계로 넘어갈까요?";
+        return "다음 단계로 넘어가겠습니다.";
     }
 
     @Transactional

@@ -28,6 +28,7 @@ public class DialogueService {
             case NEXT_STEP -> handleNextStep(sessionId);
             case INGREDIENT_STATE -> handleIngredientState(sessionId, slots);
             case DANGER_CHECK -> handleDangerCheck(sessionId, slots);
+            case ANSWER -> handleAnswer(sessionId);
             case UNKNOWN -> handleUnknown(sessionId, intentResult.originalText());
         };
     }
@@ -44,6 +45,13 @@ public class DialogueService {
      */
     private String handleNextStep(String sessionId) {
         return progressService.getNextStep(sessionId);
+    }
+
+    /**
+     * 응답 처리
+     */
+    private String handleAnswer(String sessionId){
+        return progressService.setNextStep(sessionId);
     }
 
     /**

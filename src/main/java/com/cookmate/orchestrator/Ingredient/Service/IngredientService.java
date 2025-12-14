@@ -6,20 +6,19 @@ import com.cookmate.orchestrator.Ingredient.Dto.IngredientInfoDto;
 import com.cookmate.orchestrator.Ingredient.Entity.IngredientRuntimeStatus;
 import com.cookmate.orchestrator.Ingredient.Entity.IngredientStatus;
 import com.cookmate.orchestrator.Ingredient.Repository.IngredientRuntimeStatusRepository;
-import com.cookmate.orchestrator.Recipe.Dto.RecipeResponse;
 import com.cookmate.orchestrator.Recipe.Dto.RecipeRuntimeResponse;
 import com.cookmate.orchestrator.Recipe.Entity.*;
-import com.cookmate.orchestrator.Recipe.Repository.RecipeIngredientRepository;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeProgressRepository;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeStepRepository;
 import com.cookmate.orchestrator.Recipe.Repository.StepExpectedStateRepository;
 import com.cookmate.orchestrator.User.Entity.User;
+import com.cookmate.orchestrator.VoiceAssist.TTS.TtsRequestEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,11 +31,14 @@ public class IngredientService {
     private final StepExpectedStateRepository stepExpectedStateRepository;
     private final IngredientRuntimeStatusRepository ingredientRuntimeStatusRepository;
     private final RecipeStepRepository recipeStepRepository;
+    private final ApplicationEventPublisher publisher;
 
     @Transactional
     public RecipeRuntimeResponse updateIngredientsInfo(User user, Map<String, IngredientInfoDto> ingredients) {
         /** 1) 현재 사용자의 레시피 진행상황 조회 */
         RecipeProgress currentRecipeProgress = recipeProgressRepository.findByUserId(user.getId());
+        String sessionKey = currentRecipeProgress.getSessionKey();
+
         if (currentRecipeProgress == null) {
             throw new GeneralException(ErrorStatus.NO_RECIPE_PROGRESS, "진행 중인 레시피가 없습니다.");
         }
@@ -68,7 +70,7 @@ public class IngredientService {
                 Thread.currentThread().interrupt();
             }
 
-            return goToNextStep(currentRecipeProgress, currentRecipe, currentStep);
+            return goToNextStep(sessionKey, currentRecipeProgress, currentRecipe, currentStep);
         }
 
         // "기대 상태가 있는" 단계에 대한 기존 로직 그대로
@@ -128,7 +130,7 @@ public class IngredientService {
 
         // 조건 만족하면 다음 단계로 이동
         if (conditionMet) {
-            return goToNextStep(currentRecipeProgress, currentRecipe, currentStep);
+            return goToNextStep(sessionKey, currentRecipeProgress, currentRecipe, currentStep);
         }
 
         // 아직 조건이 만족되지 않아서 현재 스텝 유지
@@ -139,13 +141,22 @@ public class IngredientService {
 
     }
 
-    private RecipeRuntimeResponse goToNextStep(RecipeProgress currentRecipeProgress, Recipe currentRecipe, RecipeStep currentStep) {
+    private RecipeRuntimeResponse goToNextStep(
+            String sessionKey,
+            RecipeProgress currentRecipeProgress,
+            Recipe currentRecipe,
+            RecipeStep currentStep
+    ) {
         Optional<RecipeStep> nextStepOpt =
                 recipeStepRepository.findNextStep(currentRecipe.getId(), currentStep.getStepIndex());
 
         if (nextStepOpt.isEmpty()) {
             log.info("nextStep이 없습니다.");
-            // TODO: 레시피 종료 음성 안내 트리거
+
+            publisher.publishEvent(new TtsRequestEvent(
+                    sessionKey,
+                    "레시피가 끝났어요. 수고하셨어요!"
+            ));
 
             return RecipeRuntimeResponse.from(
                     true,
@@ -160,10 +171,12 @@ public class IngredientService {
         Optional<RecipeStep> afterNextStepOpt =
                 recipeStepRepository.findNextStep(currentRecipe.getId(), nextStep.getStepIndex());
 
-        if(afterNextStepOpt.isPresent()) {
-            currentRecipeProgress.setNextStep(afterNextStepOpt.orElse(null));
-            // TODO: 여기서 다음 단계 음성 안내 트리거 (TTS 연동 등)
-        }
+        currentRecipeProgress.setNextStep(afterNextStepOpt.orElse(null));
+
+        publisher.publishEvent(new TtsRequestEvent(
+                sessionKey,
+                "다음 단계예요. " + nextStep.getInstruction()
+        ));
 
         return RecipeRuntimeResponse.from(
                 false,

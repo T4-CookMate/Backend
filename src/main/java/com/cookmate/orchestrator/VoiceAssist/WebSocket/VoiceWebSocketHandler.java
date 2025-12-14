@@ -13,6 +13,7 @@ import com.cookmate.orchestrator.VoiceAssist.NLU.DialogueService;
 import com.cookmate.orchestrator.VoiceAssist.NLU.IntentResult;
 import com.cookmate.orchestrator.VoiceAssist.NLU.NLUService;
 import com.cookmate.orchestrator.VoiceAssist.TTS.AzureTtsService;
+import com.cookmate.orchestrator.VoiceAssist.TTS.VoiceWebSocketSender;
 import com.cookmate.orchestrator.VoiceAssist.Vision.VisionPromptSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     private final AzureTtsService azureTtsService;
     private final RecipeRepository recipeRepository;
     private final VisionPromptSender visionPromptSender;
+    private final VoiceWebSocketSender sender;
 
     /**
      * 새로운 WebSocket 연결 생성 시 호출 -> Azure continuous STT 세션 생성
@@ -54,6 +56,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String sessionId = session.getId();
+        sender.register(sessionId, session);
 
         Long userId = (Long) session.getAttributes().get("userId");
         User user = (User) session.getAttributes().get("user");
@@ -103,8 +106,8 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 // 1) 호출어 여부 판단
                 boolean hasWakeWord =
                         text.startsWith("짝꿍아")
-                                || text.startsWith("쿡짝꿍")
-                                || text.startsWith("국자꾼");   // 오인식 대비
+                                || text.startsWith("짝꿍화")
+                                || text.startsWith("짝궁아");
 
                 if (!hasWakeWord) {
                     // 호출어 없으면 그냥 무시하고 끝
@@ -115,8 +118,8 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 // 2) 실제 호출어 부분 제거
                 String cleanedText = text
                         .replaceFirst("^짝꿍아", "")
-                        .replaceFirst("^쿡짝꿍", "")
-                        .replaceFirst("^국자꾼", "")
+                        .replaceFirst("^짝꿍화", "")
+                        .replaceFirst("^짝궁아", "")
                         .trim();
 
                 log.info("[STT] 호출어 제거 후 질의: {}", cleanedText);
@@ -162,6 +165,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         safeCleanup(session);
+        sender.unregister(session.getId());
         log.info("[WS] voice socket closed: {}", session.getId());
     }
 

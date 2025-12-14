@@ -17,12 +17,16 @@ import com.cookmate.orchestrator.Recipe.Repository.RecipeStepRepository;
 import com.cookmate.orchestrator.User.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 
 @Slf4j
 @Service
@@ -30,11 +34,16 @@ import java.util.Optional;
 public class RecipeProgressService {
 
     private final RecipeProgressRepository progressRepo;
+    private final TaskScheduler taskScheduler;
+    private final AutoStepService autoStepService;
     private final RecipeRepository recipeRepo;
     private final RecipeStepRepository stepRepo;
     private final UserRepository userRepo;
     private final IngredientStatusRepository ingredientStatusRepository;
     private final IngredientRuntimeStatusRepository ingredientRuntimeStatusRepository;
+
+    // 세션별로 중복 예약 방지용
+    private final ConcurrentHashMap<String, ScheduledFuture<?>> scheduledMap = new ConcurrentHashMap<>();
 
     @Transactional
     public Optional<RecipeProgress> startSession(Long userId, Long recipeId, String sessionKey) {
@@ -167,6 +176,40 @@ public class RecipeProgressService {
         String title = nextStep.getTitle();
         String instruction = nextStep.getInstruction();
         return "다음 단계는 " + title + " 입니다. "+ instruction;
+    }
+
+    public boolean isAutoNextScheduled(String sessionKey) {
+        ScheduledFuture<?> f = scheduledMap.get(sessionKey);
+        return f != null && !f.isDone() && !f.isCancelled();
+    }
+
+    public void cancelAutoNext(String sessionKey) {
+        ScheduledFuture<?> f = scheduledMap.remove(sessionKey);
+        if (f != null) f.cancel(false);
+    }
+
+    public void scheduleAutoNextStep(String sessionKey, Long expectedStepId, int delaySeconds) {
+
+        // 이미 예약된 게 있으면 취소
+        ScheduledFuture<?> prev = scheduledMap.remove(sessionKey);
+        if (prev != null) prev.cancel(false);
+
+        ScheduledFuture<?> future = taskScheduler.schedule(() -> {
+            try {
+                // 여기서 "다른 빈"을 호출해야 트랜잭션이 적용됨
+                autoStepService.runAutoNext(sessionKey, expectedStepId);
+
+            } catch (Exception e) {
+                log.error("[AUTO NEXT] failed session={}", sessionKey, e);
+
+            } finally {
+                scheduledMap.remove(sessionKey);
+            }
+        }, Instant.now().plusSeconds(delaySeconds));
+
+        scheduledMap.put(sessionKey, future);
+
+        log.info("[AUTO NEXT] scheduled in {} sec. session={}", delaySeconds, sessionKey);
     }
 
     @Transactional

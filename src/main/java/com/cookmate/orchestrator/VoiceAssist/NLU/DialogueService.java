@@ -44,6 +44,7 @@ public class DialogueService {
      * 실제 단계 이동
      */
     public String handleNextStep(String sessionId) {
+        progressService.cancelAutoNext(sessionId);
         return progressService.setNextStep(sessionId);
     }
 

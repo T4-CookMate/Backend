@@ -37,105 +37,133 @@ public class IngredientService {
 
     @Transactional
     public RecipeRuntimeResponse updateIngredientsInfo(User user, Map<String, IngredientInfoDto> ingredients) {
+
+        // (0) 함수 진입 로그: 호출 여부 확인
+        log.warn("[INGR] ENTER userId={}, ingredientsKeys={}",
+                user.getId(),
+                ingredients != null ? ingredients.keySet() : "null");
+
         /** 1) 현재 사용자의 레시피 진행상황 조회 */
         RecipeProgress currentRecipeProgress = recipeProgressRepository.findByUserId(user.getId());
         if (currentRecipeProgress == null) {
+            log.error("[INGR] NO_PROGRESS userId={}", user.getId());
             throw new GeneralException(ErrorStatus.NO_RECIPE_PROGRESS, "진행 중인 레시피가 없습니다.");
         }
+
         String sessionKey = currentRecipeProgress.getSessionKey();
-
         Recipe currentRecipe = currentRecipeProgress.getRecipe();
-        RecipeStep currentStep  = currentRecipeProgress.getCurrentStep();
+        RecipeStep currentStep = currentRecipeProgress.getCurrentStep();
 
-        /** 2) 이 스텝에서 주시해야 하는 기대 상태(재료 1개 기준) 조회 */
-        Optional<StepExpectedState> stateOpt =
-                stepExpectedStateRepository.findByRecipeStep(currentStep);
+        log.warn("[INGR] PROGRESS sessionKey={}, recipeId={}, stepIndex={}, stepId={}, timerSec={}",
+                sessionKey,
+                currentRecipe != null ? currentRecipe.getId() : null,
+                currentStep != null ? currentStep.getStepIndex() : null,
+                currentStep != null ? currentStep.getId() : null,
+                currentStep != null ? currentStep.getTimer() : null);
 
-        // 해당 단계에 기대 상태 자체가 없으면 → 10초 뒤에 다음 단계로 그냥 넘어감
+        /** 2) 기대 상태 조회 */
+        Optional<StepExpectedState> stateOpt = stepExpectedStateRepository.findByRecipeStep(currentStep);
+
+        log.warn("[INGR] STATE_OPT_EMPTY={} (stepId={})",
+                stateOpt.isEmpty(),
+                currentStep != null ? currentStep.getId() : null);
+
+        // --- 기대 상태 없는 단계: 타이머 처리 ---
         if (stateOpt.isEmpty()) {
             Integer timerSec = currentStep.getTimer();
 
+            log.warn("[INGR] TIMER_STEP timerSec={}, isAutoNextScheduled={}",
+                    timerSec,
+                    progressService.isAutoNextScheduled(sessionKey));
+
             if (timerSec != null && timerSec > 0) {
                 if (!progressService.isAutoNextScheduled(sessionKey)) {
+                    log.warn("[INGR] SCHEDULE_AUTO_NEXT now sessionKey={}, expectedStepId={}, delaySec={}",
+                            sessionKey, currentStep.getId(), timerSec);
                     progressService.scheduleAutoNextStep(sessionKey, currentStep.getId(), timerSec);
+                } else {
+                    log.warn("[INGR] SCHEDULE_SKIP_ALREADY_EXISTS sessionKey={}", sessionKey);
                 }
 
-                // 지금은 그냥 대기 상태 유지
-                return RecipeRuntimeResponse.from(
-                        false,
-                        currentRecipeProgress
-                );
+                return RecipeRuntimeResponse.from(false, currentRecipeProgress);
             }
 
-            // 타이머 없으면 즉시 다음 단계
+            log.warn("[INGR] TIMER_NONE -> GO_NEXT sessionKey={}", sessionKey);
+            progressService.cancelAutoNext(sessionKey);
             return goToNextStep(sessionKey, currentRecipeProgress, currentRecipe, currentStep);
         }
 
-        // "기대 상태가 있는" 단계에 대한 기존 로직 그대로
+        // --- 기대 상태 있는 단계: 비교 로직 ---
         StepExpectedState state = stateOpt.get();
 
-        /** 스텝에서 상태를 주시해야 하는 재료 조회 */
         RecipeIngredient targetRecipeIngredient = state.getRecipeIngredient();
         String ingredientName = targetRecipeIngredient.getIngredient().getName();
 
-        /** 3) 실시간으로 인식된 재료 정보 중에서 해당 재료 정보 가져오기 */
+        log.warn("[INGR] EXPECTED_STATE stepId={}, ingredient={}, evidenceHint={}, expectStatus={}, expectLocation={}",
+                currentStep.getId(),
+                ingredientName,
+                state.getEvidenceHint(),
+                state.getNextStatus(),
+                state.getNextLocation());
+
         IngredientInfoDto info = ingredients.get(ingredientName);
         if (info == null) {
-            throw new GeneralException(
-                    ErrorStatus.NO_INGREDIENT,
-                    "재료 정보 없음: " + ingredientName
-            );
+            log.error("[INGR] INGREDIENT_MISSING in payload. expectedName={}, payloadKeys={}",
+                    ingredientName, ingredients.keySet());
+            throw new GeneralException(ErrorStatus.NO_INGREDIENT, "재료 정보 없음: " + ingredientName);
         }
 
         IngredientStatus status = info.status();
         Location location = info.location();
 
-        /** 4) 해당 재료의 실시간 상태 엔티티 조회 */
-        IngredientRuntimeStatus runtimeStatus = ingredientRuntimeStatusRepository
-                .findByProgressAndRecipeIngredient(
-                        currentRecipeProgress,
-                        targetRecipeIngredient
-                )
-                .orElseThrow(() -> new GeneralException(
-                        ErrorStatus.NO_RUNTIME_STATUS,
-                        "실시간 상태가 존재하지 않습니다: " + ingredientName
-                ));
+        log.warn("[INGR] OBSERVED ingredient={}, status={}, location={}",
+                ingredientName, status, location);
 
-        // 최신 상태로 갱신
+        IngredientRuntimeStatus runtimeStatus = ingredientRuntimeStatusRepository
+                .findByProgressAndRecipeIngredient(currentRecipeProgress, targetRecipeIngredient)
+                .orElseThrow(() -> {
+                    log.error("[INGR] NO_RUNTIME_STATUS sessionKey={}, ingredient={}", sessionKey, ingredientName);
+                    return new GeneralException(ErrorStatus.NO_RUNTIME_STATUS, "실시간 상태가 존재하지 않습니다: " + ingredientName);
+                });
+
         runtimeStatus.setStatus(status);
         runtimeStatus.setLocation(location);
 
-        /** 5) 기대 상태와 실제 상태/위치 비교 */
         String evidenceHint = state.getEvidenceHint();
         boolean conditionMet;
 
         if ("LOCATION".equals(evidenceHint)) {
-            // 예상한 위치와 현재 위치가 동일한 경우
             conditionMet = state.getNextLocation() != null
                     && state.getNextLocation().equals(runtimeStatus.getLocation());
 
+            log.warn("[INGR] CHECK LOCATION expected={}, actual={}, met={}",
+                    state.getNextLocation(),
+                    runtimeStatus.getLocation(),
+                    conditionMet);
+
         } else if ("STATUS".equals(evidenceHint)) {
-            // 예상한 상태와 현재 상태가 동일한 경우
             conditionMet = state.getNextStatus() != null
                     && state.getNextStatus().equals(runtimeStatus.getStatus());
 
+            log.warn("[INGR] CHECK STATUS expected={}, actual={}, met={}",
+                    state.getNextStatus(),
+                    runtimeStatus.getStatus(),
+                    conditionMet);
+
         } else {
-            throw new GeneralException(
-                    ErrorStatus.NO_EVIDENCE,
-                    "evidence가 설정되지 않았습니다. evidenceHint=" + evidenceHint
-            );
+            log.error("[INGR] INVALID_EVIDENCE_HINT evidenceHint={}", evidenceHint);
+            throw new GeneralException(ErrorStatus.NO_EVIDENCE,
+                    "evidence가 설정되지 않았습니다. evidenceHint=" + evidenceHint);
         }
 
-        // 조건 만족하면 다음 단계로 이동
         if (conditionMet) {
+            log.warn("[INGR] CONDITION_MET -> GO_NEXT sessionKey={}", sessionKey);
+            progressService.cancelAutoNext(sessionKey);
             return goToNextStep(sessionKey, currentRecipeProgress, currentRecipe, currentStep);
         }
 
-        // 아직 조건이 만족되지 않아서 현재 스텝 유지
-        return RecipeRuntimeResponse.from(
-                false,
-                currentRecipeProgress
-        );
+        log.warn("[INGR] CONDITION_NOT_MET -> STAY sessionKey={}", sessionKey);
+        return RecipeRuntimeResponse.from(false, currentRecipeProgress);
     }
 
     private RecipeRuntimeResponse goToNextStep(

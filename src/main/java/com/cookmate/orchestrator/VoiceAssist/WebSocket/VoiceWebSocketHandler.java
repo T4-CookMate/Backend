@@ -144,6 +144,8 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 String cleanedText = text
                         .replaceFirst("^짝꿍아", "")
                         .replaceFirst("^짝꿍화", "")
+                        .replaceFirst("^자꾸만", "")
+                        .replaceFirst("^딱 공학", "")
                         .replaceFirst("^짝궁아", "")
                         .trim();
 
@@ -166,11 +168,6 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 }
             }
         });
-
-        publisher.publishEvent(new TtsRequestEvent(
-                sessionId,
-                "요리 시작을 원하시면 '시작'이라고 말씀해주세요."
-        ));
 
         log.info("[WS] voice socket connected: {}", sessionId);
     }
@@ -211,6 +208,16 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
 
         // PCM chunk를 STT 세션에 전달
         sttSessionManager.pushAudio(sessionId, pcm);
+    }
+
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        if ("READY".equals(message.getPayload())) {
+            publisher.publishEvent(new TtsRequestEvent(
+                    session.getId(),
+                    "요리 시작을 원하시면 '시작'이라고 말씀해주세요."
+            ));
+        }
     }
 
     /**

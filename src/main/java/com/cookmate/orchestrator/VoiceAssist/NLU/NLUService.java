@@ -50,10 +50,10 @@ public class NLUService {
             return new IntentResult(IntentType.START, slots, text);             // 레시피 시작
         }
         if (isNextStepQuestion(normalized)) {
-            return new IntentResult(IntentType.NEXT_STEP, slots, text);         // 다음 단계 이동
+            return new IntentResult(IntentType.NEXT_STEP_QUESTION, slots, text);         // 다음 단계 질문
         }
-        if(isAnswered(normalized)){
-            return new IntentResult(IntentType.ANSWER, slots, text);
+        if (isNextStepMove(normalized)) {
+            return new IntentResult(IntentType.NEXT_STEP, slots, text);         // 다음 단계 이동
         }
         if (isIngredientStateQuestion(normalized)) {
             return new IntentResult(IntentType.INGREDIENT_STATE, slots, text);  // 재료 상태 질문
@@ -83,29 +83,25 @@ public class NLUService {
     }
 
     /**
-     * 다음 단계 이동
+     * 다음 단계 질문
      */
     private boolean isNextStepQuestion(String normalized) {
-        return normalized.contains("다음단계")
-                || normalized.contains("다음")
-                || normalized.contains("다했어")
-                || normalized.contains("다함")
-                || normalized.contains("끝")
-                || normalized.contains("그다음")
-                || normalized.contains("이제뭐")
-                || normalized.contains("다음에뭐")
-                || normalized.contains("다음으로뭐");
+        return (normalized.contains("다음단계")
+                || normalized.contains("다음"))
+                && (normalized.contains("뭐")
+                || normalized.contains("뭐야")
+                || normalized.contains("알려줘"));
     }
 
     /**
-     * 대답 처리
+     * 다음 단계 이동
      */
-    private boolean isAnswered(String normalized) {
-        return normalized.contains("웅")
-                || normalized.contains("응")
-                || normalized.contains("으")
-                || normalized.contains("잉")
-                || normalized.contains("엉");
+    private boolean isNextStepMove(String normalized) {
+        return normalized.contains("다했어")
+                || normalized.contains("다함")
+                || normalized.contains("끝")
+                || normalized.contains("다음단계")
+                || normalized.contains("다음");
     }
 
     /**

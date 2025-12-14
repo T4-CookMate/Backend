@@ -122,9 +122,13 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                     }
 
                     // 대답 처리
-                    if (isYes(text)) {
-                        String answerText = dialogueService.handleAnswer(sessionId);
+                    if (isYesNo(text) == 1) {
+                        String answerText = dialogueService.handleNextStep(sessionId);
                         byte[] audioBytes = azureTtsService.synthesizeToRawPcm(answerText);
+                        session.sendMessage(new BinaryMessage(audioBytes));
+                        return;
+                    }else if(isYesNo(text) == 2){
+                        byte[] audioBytes = azureTtsService.synthesizeToRawPcm("네 알겠습니다.");
                         session.sendMessage(new BinaryMessage(audioBytes));
                         return;
                     }
@@ -175,12 +179,21 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                 || s.startsWith("시쟉");
     }
 
-    private boolean isYes(String s) {
-        return s.startsWith("웅")
+    private Integer isYesNo(String s) {
+        if (s.startsWith("웅")
                 || s.startsWith("응")
                 || s.startsWith("잉")
                 || s.startsWith("엉")
-                || s.startsWith("옹");
+                || s.startsWith("옹")){
+            return 1;
+        }else if (s.startsWith("아니")
+                || s.startsWith("아니요")
+                || s.startsWith("아닝")
+                || s.startsWith("노")) {
+            return 2;
+        }else{
+            return 0;
+        }
     }
 
     /**

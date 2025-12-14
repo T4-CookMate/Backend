@@ -38,11 +38,11 @@ public class IngredientStatusService {
             return "현재 진행 중인 단계가 없습니다.";
         }
 
-        Ingredient ingredient = ingredientRepo.findByName(ingredientName);
+        Ingredient ingredient = ingredientRepo.findByKoreanName(ingredientName);
         if (ingredient == null) {
             return ingredientName + "는 이 레시피에 없는 재료 같아요.";
         }
-        log.info("DB에서 찾은 재료 이름: {}", ingredient.getName());
+        log.info("DB에서 찾은 재료 이름: {}", ingredient.getKoreanName());
 
         Recipe recipe = progress.getRecipe();
         RecipeIngredient recipeIngredient =
@@ -69,7 +69,7 @@ public class IngredientStatusService {
         if (runtimeStatus == null) {
             return ingredientName + "의 현재 상태를 아직 정확히 인식하지 못했어요. " +
                     "조금 더 가까이 보여주실 수 있을까요? " +
-                    "레시피 상으로는 지금 " + expectedCurrent.getCode() + " 상태여야 해요.";
+                    "레시피 상으로는 지금 " + expectedCurrent.getName() + " 상태여야 해요.";
         }
 
         IngredientStatus actual = runtimeStatus.getStatus();

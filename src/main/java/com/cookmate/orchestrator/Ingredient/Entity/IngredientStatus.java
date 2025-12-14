@@ -25,6 +25,11 @@ public class IngredientStatus {
     @Column(name = "code", nullable = false, length = 64)
     private String code;
 
+    @Size(max = 64)
+    @NotNull
+    @Column(name = "name", nullable = false, length = 64)
+    private String name;
+
     @OneToMany(mappedBy = "currentStatus")
     private Set<StepExpectedState> stepExpectedCurrentStates = new LinkedHashSet<>();
 

@@ -86,6 +86,9 @@ public class NLUService {
     private boolean isNextStepQuestion(String normalized) {
         return normalized.contains("다음단계")
                 || normalized.contains("다음")
+                || normalized.contains("다했어")
+                || normalized.contains("다함")
+                || normalized.contains("끝")
                 || normalized.contains("그다음")
                 || normalized.contains("이제뭐")
                 || normalized.contains("다음에뭐")

@@ -36,7 +36,7 @@ public class DialogueService {
     /**
      * 요리 시작
      */
-    private String handleStart(String sessionId) {
+    public String handleStart(String sessionId) {
         return progressService.startStep(sessionId);
     }
 
@@ -50,7 +50,7 @@ public class DialogueService {
     /**
      * 응답 처리
      */
-    private String handleAnswer(String sessionId){
+    public String handleAnswer(String sessionId){
         return progressService.setNextStep(sessionId);
     }
 

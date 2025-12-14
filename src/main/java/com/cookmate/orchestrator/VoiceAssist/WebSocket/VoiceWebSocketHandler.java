@@ -113,8 +113,24 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                                 || text.startsWith("짝궁아");
 
                 if (!hasWakeWord) {
-                    // 호출어 없으면 그냥 무시하고 끝
-                    log.info("[STT] 호출어 없음 → 무시: {}", text);
+                    // 시작 처리
+                    if (isStart(text)) {
+                        String answerText = dialogueService.handleStart(sessionId);
+                        byte[] audioBytes = azureTtsService.synthesizeToRawPcm(answerText);
+                        session.sendMessage(new BinaryMessage(audioBytes));
+                        return;
+                    }
+
+                    // 대답 처리
+                    if (isYes(text)) {
+                        String answerText = dialogueService.handleAnswer(sessionId);
+                        byte[] audioBytes = azureTtsService.synthesizeToRawPcm(answerText);
+                        session.sendMessage(new BinaryMessage(audioBytes));
+                        return;
+                    }
+
+                    // 여기까지 왔으면: 호출어도 없고, 단답을 기대하는 상황도 아님 → 무시(또는 안내)
+                    log.info("[STT] 호출어 없음 & 처리할 단답 상태 아님 → 무시: {}", text);
                     return;
                 }
 
@@ -151,6 +167,20 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
         ));
 
         log.info("[WS] voice socket connected: {}", sessionId);
+    }
+
+    private boolean isStart(String s) {
+        return s.startsWith("시작")
+                || s.startsWith("시작해")
+                || s.startsWith("시쟉");
+    }
+
+    private boolean isYes(String s) {
+        return s.startsWith("웅")
+                || s.startsWith("응")
+                || s.startsWith("잉")
+                || s.startsWith("엉")
+                || s.startsWith("옹");
     }
 
     /**

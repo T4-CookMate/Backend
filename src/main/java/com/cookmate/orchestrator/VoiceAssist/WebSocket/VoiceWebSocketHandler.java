@@ -2,6 +2,7 @@ package com.cookmate.orchestrator.VoiceAssist.WebSocket;
 
 import com.cookmate.orchestrator.Common.ApiPayload.Status.ErrorStatus;
 import com.cookmate.orchestrator.Common.Exception.GeneralException;
+import com.cookmate.orchestrator.Recipe.Entity.Recipe;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
 import com.cookmate.orchestrator.User.Entity.User;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeRepository;
@@ -12,6 +13,7 @@ import com.cookmate.orchestrator.VoiceAssist.NLU.DialogueService;
 import com.cookmate.orchestrator.VoiceAssist.NLU.IntentResult;
 import com.cookmate.orchestrator.VoiceAssist.NLU.NLUService;
 import com.cookmate.orchestrator.VoiceAssist.TTS.AzureTtsService;
+import com.cookmate.orchestrator.VoiceAssist.Vision.VisionPromptSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -43,6 +45,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
     private final DialogueService dialogueService;
     private final AzureTtsService azureTtsService;
     private final RecipeRepository recipeRepository;
+    private final VisionPromptSender visionPromptSender;
 
     /**
      * 새로운 WebSocket 연결 생성 시 호출 -> Azure continuous STT 세션 생성
@@ -81,11 +84,15 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
             progressOpt = progressService.startSession(userId, recipeId, sessionId);
         }
 
-
         // 한 차례 정리 후에도 Progress가 종료되지 않은 경우
         if (progressOpt.isEmpty()) {
             throw new GeneralException(ErrorStatus.SESSION_ALREADY_START);
         }
+
+        // 비전 서버에 프롬프트 전송
+        Recipe currentRecipe = recipeRepository.findById(recipeId).orElse(null);
+        String prompt = currentRecipe.getPrompt();
+        visionPromptSender.send(recipeId, prompt);
 
         // STT 세션 생성: STT 결과가 나오면 해당 WebSocket으로 바로 전송
         sttSessionManager.createSession(sessionId, finalText -> {

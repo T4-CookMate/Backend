@@ -74,7 +74,6 @@ public class DialogueService {
      */
     private String handleUnknown(String sessionId, String originalText) {
         log.info("[handleUnknown]: sessionId = {},originalText = {}", sessionId, originalText);
-        return "지금 말씀하신 내용은 제가 아직 잘 이해하지 못했어요. "
-                + "재료 상태, 다음 단계, 주변 위험 요소에 대해 다시 한 번 말해 주실 수 있을까요?";
+        return "다시 한 번 말씀해주시겠어요?";
     }
 }

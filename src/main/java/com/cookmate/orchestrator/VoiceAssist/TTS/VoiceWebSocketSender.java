@@ -1,5 +1,6 @@
 package com.cookmate.orchestrator.VoiceAssist.TTS;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -8,6 +9,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Component
 public class VoiceWebSocketSender {
 
@@ -26,6 +28,7 @@ public class VoiceWebSocketSender {
         if (s == null || !s.isOpen()) return;
 
         s.sendMessage(new BinaryMessage(pcm));
+        log.info("pcm sent: {}", pcm);
     }
 }
 

@@ -90,7 +90,24 @@ public class RecipeProgressService {
         return Optional.of(progressRepo.save(progress));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
+    public String startStep(String sessionKey){
+        Optional<RecipeProgress> progressOpt = progressRepo.findBySessionKey(sessionKey);
+        if (progressOpt.isEmpty()) {
+            log.info("현재 진행 중인 레시피가 없습니다.");
+            throw new GeneralException(ErrorStatus._NOT_FOUND);
+        }
+
+        RecipeProgress progress = progressOpt.get();
+        RecipeStep currentStep = progress.getCurrentStep();
+
+        String title = currentStep.getTitle();
+        String instruction = currentStep.getInstruction();
+
+        return "첫 단계는 " + title + " 입니다. " + instruction;
+    }
+
+    @Transactional
     public String getNextStep (String sessionKey){
         RecipeProgress progress = progressRepo.findBySessionKey(sessionKey)
                 .orElseThrow(() -> new IllegalStateException("세션 진행 정보가 없습니다."));
@@ -122,7 +139,7 @@ public class RecipeProgressService {
         String title = nextStep.getTitle();
         String instruction = nextStep.getInstruction();
 
-        return "다음 단계는 " + title + " 입니다. " + instruction;
+        return "다음 단계는 " + title + " 입니다. " + instruction + "다음 단계로 넘어갈까요?";
     }
 
     @Transactional

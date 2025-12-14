@@ -24,11 +24,19 @@ public class DialogueService {
         Map<String, String> slots = intentResult.slots();
 
         return switch (type) {
+            case START -> handleStart(sessionId);
             case NEXT_STEP -> handleNextStep(sessionId);
             case INGREDIENT_STATE -> handleIngredientState(sessionId, slots);
             case DANGER_CHECK -> handleDangerCheck(sessionId, slots);
             case UNKNOWN -> handleUnknown(sessionId, intentResult.originalText());
         };
+    }
+
+    /**
+     * 요리 시작
+     */
+    private String handleStart(String sessionId) {
+        return progressService.startStep(sessionId);
     }
 
     /**

@@ -21,11 +21,22 @@ public class IngredientInfoMapper {
 
     public IngredientInfoDto toDto(IngredientInfoRequest req) {
 
-        IngredientStatus status = ingredientStatusRepository.findByCode(req.status())
-                .orElseThrow(() -> new IllegalArgumentException("Unknown status: " + req.status()));
+        // 1️⃣ status 처리
+        IngredientStatus status;
+        if (req.status() == null) {
+            status = ingredientStatusRepository.findByCode("UNDEFINED")
+                    .orElseThrow(() -> new IllegalStateException("UNDEFINED status not found"));
+        } else {
+            status = ingredientStatusRepository.findByCode(req.status())
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown status: " + req.status()));
+        }
 
-        Location location = null;
-        if (req.location() != null) {
+        // 2️⃣ location 처리
+        Location location;
+        if (req.location() == null) {
+            location = locationRepository.findByName("UNDEFINED")
+                    .orElseThrow(() -> new IllegalStateException("UNDEFINED location not found"));
+        } else {
             location = locationRepository.findByName(req.location())
                     .orElseThrow(() -> new IllegalArgumentException("Unknown location: " + req.location()));
         }

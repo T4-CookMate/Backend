@@ -47,7 +47,7 @@ public class NLUService {
 
         /** 3. Intent 분류 */
         if (isNextStepQuestion(normalized)) {
-            return new IntentResult(IntentType.NEXT_STEP, slots, text);         // 요리 다음 단계 질문
+            return new IntentResult(IntentType.NEXT_STEP, slots, text);         // 다음 단계 이동
         }
 
         if (isIngredientStateQuestion(normalized)) {
@@ -71,11 +71,10 @@ public class NLUService {
     }
 
     /**
-     * 다음 단계 관련 질문
+     * 다음 단계 이동
      */
     private boolean isNextStepQuestion(String normalized) {
         return normalized.contains("다음단계")
-                || normalized.contains("다음뭐")
                 || normalized.contains("다음")
                 || normalized.contains("그다음")
                 || normalized.contains("이제뭐")

@@ -6,6 +6,7 @@ import com.cookmate.orchestrator.Ingredient.Entity.IngredientRuntimeStatus;
 import com.cookmate.orchestrator.Ingredient.Entity.IngredientStatus;
 import com.cookmate.orchestrator.Ingredient.Repository.IngredientRuntimeStatusRepository;
 import com.cookmate.orchestrator.Ingredient.Repository.IngredientStatusRepository;
+import com.cookmate.orchestrator.Recipe.Dto.RecipeRuntimeResponse;
 import com.cookmate.orchestrator.Recipe.Entity.Recipe;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeIngredient;
 import com.cookmate.orchestrator.Recipe.Entity.RecipeProgress;
@@ -94,9 +95,27 @@ public class RecipeProgressService {
         RecipeProgress progress = progressRepo.findBySessionKey(sessionKey)
                 .orElseThrow(() -> new IllegalStateException("세션 진행 정보가 없습니다."));
 
-        RecipeStep nextStep = progress.getNextStep();
-        if (nextStep == null) {
-            return "이미 마지막 단계까지 진행하셨어요.";
+        // 현재 레시피 조회
+        Recipe currentRecipe = progress.getRecipe();
+        RecipeStep currentStep = progress.getCurrentStep();
+
+        Optional<RecipeStep> nextStepOpt =
+                stepRepo.findNextStep(currentRecipe.getId(), currentStep.getStepIndex());
+
+        if (nextStepOpt.isEmpty()) {
+            log.info("nextStep이 없습니다.");
+            return "마지막 단계입니다.";
+        }
+
+        RecipeStep nextStep = nextStepOpt.get();
+        progress.setCurrentStep(nextStep);
+
+        // 그 다음(“다다음”) 스텝 설정 (없으면 null)
+        Optional<RecipeStep> afterNextStepOpt =
+                stepRepo.findNextStep(currentRecipe.getId(), nextStep.getStepIndex());
+
+        if(afterNextStepOpt.isPresent()) {
+            progress.setNextStep(afterNextStepOpt.orElse(null));
         }
 
         // title + instruction 조합해서 음성용 텍스트로 변환

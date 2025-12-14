@@ -130,8 +130,7 @@ public class RecipeProgressService {
 
         // title + instruction 조합해서 음성용 텍스트로 변환
         String title = nextStep.getTitle();
-        String instruction = nextStep.getInstruction();
-        return "다음 단계는 " + title + " 입니다. " + instruction + "다음 단계로 넘어갈까요?";
+        return "다음 단계는 " + title + " 입니다. " + "다음 단계로 넘어갈까요?";
     }
 
     /**

@@ -31,6 +31,7 @@ public class RecipeService {
     public RecipeResponse.RecipeListDto searchRecipe(User user, String keyword, Integer page){
         Long userId = user.getId();
         keyword = keyword.trim();
+
         log.info("Searching recipe for keyword {}, page: {}", keyword, page);
 
         Pageable pageable = PageRequest.of(page, 4);

@@ -42,12 +42,23 @@ public class IngredientService {
 
     @Transactional
     public RecipeRuntimeResponse updateIngredientsInfo(User user, Map<String, IngredientInfoDto> ingredients) {
-
         /** 1) 현재 사용자의 레시피 진행상황 조회 */
         RecipeProgress currentRecipeProgress = recipeProgressRepository.findByUserId(user.getId());
         if (currentRecipeProgress == null) {
             log.error("[INGR] NO_PROGRESS userId={}", user.getId());
             throw new GeneralException(ErrorStatus.NO_RECIPE_PROGRESS, "진행 중인 레시피가 없습니다.");
+        }
+        // 이미 종료된 레시피면 이후 재료 업데이트는 전부 무시
+        if (Boolean.TRUE.equals(currentRecipeProgress.getIsDone())) {
+            log.info("[INGR] progress already done. ignore userId={}, sessionKey={}",
+                    user.getId(), currentRecipeProgress.getSessionKey());
+            return RecipeRuntimeResponse.from(false, currentRecipeProgress); // 또는 from(false, ...)
+        }
+
+        // 시작 전이면 무시
+        if (Boolean.FALSE.equals(currentRecipeProgress.getIsStarted())) {
+            log.info("[INGR] progress not started. ignore userId={}", user.getId());
+            return RecipeRuntimeResponse.from(false, currentRecipeProgress);
         }
 
         String sessionKey = currentRecipeProgress.getSessionKey();
@@ -171,6 +182,7 @@ public class IngredientService {
         if (nextStepOpt.isEmpty()) {
             log.info("nextStep이 없습니다.");
 
+            currentRecipeProgress.setIsDone(true);
             publisher.publishEvent(new TtsRequestEvent(
                     sessionKey,
                     "레시피가 끝났어요. 수고하셨어요!"

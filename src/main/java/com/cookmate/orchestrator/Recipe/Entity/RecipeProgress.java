@@ -29,6 +29,14 @@ public class RecipeProgress {
     private Recipe recipe;
 
     @NotNull
+    @Column(nullable = false)
+    private Boolean isStarted = false;
+
+    @NotNull
+    @Column(nullable = false)
+    private Boolean isDone = false;
+
+    @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "current_step_id", nullable = false)
     private RecipeStep currentStep;

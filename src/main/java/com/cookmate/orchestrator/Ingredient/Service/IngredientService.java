@@ -206,7 +206,6 @@ public class IngredientService {
             );
         }
 
-
         RecipeStep nextStep = nextStepOpt.get();
         currentRecipeProgress.setCurrentStep(nextStep);
 

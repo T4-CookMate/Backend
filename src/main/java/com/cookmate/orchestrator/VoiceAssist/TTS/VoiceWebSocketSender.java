@@ -23,6 +23,10 @@ public class VoiceWebSocketSender {
         sessions.remove(sessionId);
     }
 
+    public WebSocketSession getSession(String sessionId) {
+        return sessions.get(sessionId);
+    }
+
     public void sendPcm(String sessionId, byte[] pcm) throws IOException {
         WebSocketSession s = sessions.get(sessionId);
         if (s == null || !s.isOpen()) return;

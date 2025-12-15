@@ -14,12 +14,16 @@ import com.cookmate.orchestrator.Recipe.Repository.StepExpectedStateRepository;
 import com.cookmate.orchestrator.Recipe.Service.RecipeProgressService;
 import com.cookmate.orchestrator.User.Entity.User;
 import com.cookmate.orchestrator.VoiceAssist.TTS.TtsRequestEvent;
+import com.cookmate.orchestrator.VoiceAssist.TTS.VoiceWebSocketSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
@@ -34,14 +38,10 @@ public class IngredientService {
     private final RecipeStepRepository recipeStepRepository;
     private final ApplicationEventPublisher publisher;
     private final RecipeProgressService progressService;
+    private final VoiceWebSocketSender sender;
 
     @Transactional
     public RecipeRuntimeResponse updateIngredientsInfo(User user, Map<String, IngredientInfoDto> ingredients) {
-
-        // (0) 함수 진입 로그: 호출 여부 확인
-        log.warn("[INGR] ENTER userId={}, ingredientsKeys={}",
-                user.getId(),
-                ingredients != null ? ingredients.keySet() : "null");
 
         /** 1) 현재 사용자의 레시피 진행상황 조회 */
         RecipeProgress currentRecipeProgress = recipeProgressRepository.findByUserId(user.getId());
@@ -54,57 +54,50 @@ public class IngredientService {
         Recipe currentRecipe = currentRecipeProgress.getRecipe();
         RecipeStep currentStep = currentRecipeProgress.getCurrentStep();
 
-        log.warn("[INGR] PROGRESS sessionKey={}, recipeId={}, stepIndex={}, stepId={}, timerSec={}",
+        log.warn("[INGR] PROGRESS sessionKey={}, recipeId={}, stepIndex={}, timerSec={}",
                 sessionKey,
                 currentRecipe != null ? currentRecipe.getId() : null,
                 currentStep != null ? currentStep.getStepIndex() : null,
-                currentStep != null ? currentStep.getId() : null,
                 currentStep != null ? currentStep.getTimer() : null);
 
         /** 2) 기대 상태 조회 */
         Optional<StepExpectedState> stateOpt = stepExpectedStateRepository.findByRecipeStep(currentStep);
 
-        log.warn("[INGR] STATE_OPT_EMPTY={} (stepId={})",
-                stateOpt.isEmpty(),
-                currentStep != null ? currentStep.getId() : null);
-
-        // --- 기대 상태 없는 단계: 타이머 처리 ---
+        /** 예상 상태 없는 경우: 타이머 적용 */
         if (stateOpt.isEmpty()) {
             Integer timerSec = currentStep.getTimer();
-
-            log.warn("[INGR] TIMER_STEP timerSec={}, isAutoNextScheduled={}",
+            log.warn("[INGR] 기대 상태 없음 (stepId={}, timerSec={}, isAutoNextScheduled={})",
+                    currentStep != null ? currentStep.getId() : null,
                     timerSec,
                     progressService.isAutoNextScheduled(sessionKey));
 
+            /** 타이머가 정상적으로 정의되어 있는 경우 */
             if (timerSec != null && timerSec > 0) {
                 if (!progressService.isAutoNextScheduled(sessionKey)) {
-                    log.warn("[INGR] SCHEDULE_AUTO_NEXT now sessionKey={}, expectedStepId={}, delaySec={}",
+                    log.warn("[INGR] SCHEDULE_AUTO_NEXT now sessionKey={}, expectedStepId={}, timerSec={}",
                             sessionKey, currentStep.getId(), timerSec);
                     progressService.scheduleAutoNextStep(sessionKey, currentStep.getId(), timerSec);
                 } else {
-                    log.warn("[INGR] SCHEDULE_SKIP_ALREADY_EXISTS sessionKey={}", sessionKey);
+                    log.warn("[INGR] SCHEDULE_SKIP_ALREADY_EXISTS stepId={}", currentStep.getId());
                 }
-
                 return RecipeRuntimeResponse.from(false, currentRecipeProgress);
             }
-
-            log.warn("[INGR] TIMER_NONE -> GO_NEXT sessionKey={}", sessionKey);
             progressService.cancelAutoNext(sessionKey);
             return goToNextStep(sessionKey, currentRecipeProgress, currentRecipe, currentStep);
         }
 
-        // --- 기대 상태 있는 단계: 비교 로직 ---
+        /** 예상 상태 있는 경우: 상태 비교 */
         StepExpectedState state = stateOpt.get();
 
         RecipeIngredient targetRecipeIngredient = state.getRecipeIngredient();
         String ingredientName = targetRecipeIngredient.getIngredient().getName();
 
-        log.warn("[INGR] EXPECTED_STATE stepId={}, ingredient={}, evidenceHint={}, expectStatus={}, expectLocation={}",
-                currentStep.getId(),
-                ingredientName,
-                state.getEvidenceHint(),
-                state.getNextStatus(),
-                state.getNextLocation());
+//        log.warn("[INGR] EXPECTED_STATE stepId={}, ingredient={}, evidenceHint={}, expectStatus={}, expectLocation={}",
+//                currentStep.getId(),
+//                ingredientName,
+//                state.getEvidenceHint(),
+//                state.getNextStatus(),
+//                state.getNextLocation());
 
         IngredientInfoDto info = ingredients.get(ingredientName);
         if (info == null) {
@@ -116,8 +109,8 @@ public class IngredientService {
         IngredientStatus status = info.status();
         Location location = info.location();
 
-        log.warn("[INGR] OBSERVED ingredient={}, status={}, location={}",
-                ingredientName, status, location);
+//        log.warn("[INGR] OBSERVED ingredient={}, status={}, location={}",
+//                ingredientName, status, location);
 
         IngredientRuntimeStatus runtimeStatus = ingredientRuntimeStatusRepository
                 .findByProgressAndRecipeIngredient(currentRecipeProgress, targetRecipeIngredient)
@@ -146,8 +139,8 @@ public class IngredientService {
                     && state.getNextStatus().equals(runtimeStatus.getStatus());
 
             log.warn("[INGR] CHECK STATUS expected={}, actual={}, met={}",
-                    state.getNextStatus().getName(),
-                    runtimeStatus.getStatus().getName(),
+                    state.getNextStatus().getCode(),
+                    runtimeStatus.getStatus().getCode(),
                     conditionMet);
 
         } else {
@@ -157,12 +150,12 @@ public class IngredientService {
         }
 
         if (conditionMet) {
-            log.warn("[INGR] CONDITION_MET -> GO_NEXT sessionKey={}", sessionKey);
+            log.warn("[INGR] CONDITION_MET -> GO_NEXT_STEP (현재 step={})", currentStep.getStepIndex());
             progressService.cancelAutoNext(sessionKey);
             return goToNextStep(sessionKey, currentRecipeProgress, currentRecipe, currentStep);
         }
 
-        log.warn("[INGR] CONDITION_NOT_MET -> STAY sessionKey={}", sessionKey);
+        log.warn("[INGR] CONDITION_NOT_MET -> STAY (현재 step={})", currentStep.getStepIndex());
         return RecipeRuntimeResponse.from(false, currentRecipeProgress);
     }
 
@@ -182,6 +175,18 @@ public class IngredientService {
                     sessionKey,
                     "레시피가 끝났어요. 수고하셨어요!"
             ));
+
+            WebSocketSession session = sender.getSession(sessionKey);
+            if (session == null || !session.isOpen()) {
+                log.warn("[WS] END 전송 실패: 세션 없음/닫힘 sessionKey={}", sessionKey);
+                return RecipeRuntimeResponse.from(true, currentRecipeProgress);
+            }
+
+            try {
+                session.sendMessage(new TextMessage("END"));
+            } catch (IOException e) {
+                log.warn("[WS] END 전송 실패 sessionKey={}", sessionKey, e);
+            }
 
             return RecipeRuntimeResponse.from(
                     true,

@@ -41,7 +41,6 @@ public class RecipeProgress {
     @JoinColumn(name = "current_step_id", nullable = false)
     private RecipeStep currentStep;
 
-    @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "next_step_id", nullable = false)
     private RecipeStep nextStep;

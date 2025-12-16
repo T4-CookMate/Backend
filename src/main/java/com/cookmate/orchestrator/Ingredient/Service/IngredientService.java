@@ -65,12 +65,6 @@ public class IngredientService {
         Recipe currentRecipe = currentRecipeProgress.getRecipe();
         RecipeStep currentStep = currentRecipeProgress.getCurrentStep();
 
-        log.warn("[INGR] PROGRESS sessionKey={}, recipeId={}, stepIndex={}, timerSec={}",
-                sessionKey,
-                currentRecipe != null ? currentRecipe.getId() : null,
-                currentStep != null ? currentStep.getStepIndex() : null,
-                currentStep != null ? currentStep.getTimer() : null);
-
         /** 2) 기대 상태 조회 */
         Optional<StepExpectedState> stateOpt = stepExpectedStateRepository.findByRecipeStep(currentStep);
 
@@ -84,11 +78,11 @@ public class IngredientService {
 
             /** 타이머가 정상적으로 정의되어 있는 경우 */
             if (timerSec != null && timerSec > 0) {
-                if (!progressService.isAutoNextScheduled(sessionKey)) {
-                    log.warn("[INGR] SCHEDULE_AUTO_NEXT now sessionKey={}, expectedStepId={}, timerSec={}",
-                            sessionKey, currentStep.getId(), timerSec);
+                if (!progressService.isAutoNextScheduled(sessionKey)) {   // 진행 중인 타이머가 없는 경우
+                    log.warn("[INGR] SCHEDULE_AUTO_NEXT now expectedStepId={}, timerSec={}",
+                            currentStep.getId(), timerSec);
                     progressService.scheduleAutoNextStep(sessionKey, currentStep.getId(), timerSec);
-                } else {
+                } else {                                                  // 이미 타이머 진행 중인 경우
                     log.warn("[INGR] SCHEDULE_SKIP_ALREADY_EXISTS stepId={}", currentStep.getId());
                 }
                 return RecipeRuntimeResponse.from(false, currentRecipeProgress);

@@ -202,6 +202,8 @@ public class RecipeProgressService {
         ScheduledFuture<?> prev = scheduledMap.remove(sessionKey);
         if (prev != null) prev.cancel(false);
 
+        final ScheduledFuture<?>[] holder = new ScheduledFuture<?>[1];
+
         ScheduledFuture<?> future = taskScheduler.schedule(() -> {
             try {
                 txTemplate.execute(status -> {
@@ -230,10 +232,11 @@ public class RecipeProgressService {
                 log.error("[AUTO NEXT] failed session={}", sessionKey, e);
 
             } finally {
-                scheduledMap.remove(sessionKey);
+                scheduledMap.remove(sessionKey, holder[0]);
             }
         }, Instant.now().plusSeconds(delaySeconds));       // 지금으로부터 delaySeconds초 뒤에 안의 코드를 수행한다
 
+        holder[0] = future;
         scheduledMap.put(sessionKey, future);
 
         log.info("[AUTO NEXT] scheduled in {} sec. session={}", delaySeconds, sessionKey);

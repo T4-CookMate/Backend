@@ -15,6 +15,8 @@ import com.cookmate.orchestrator.Recipe.Repository.RecipeProgressRepository;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeRepository;
 import com.cookmate.orchestrator.Recipe.Repository.RecipeStepRepository;
 import com.cookmate.orchestrator.User.Repository.UserRepository;
+import com.cookmate.orchestrator.VoiceAssist.TTS.AzureTtsService;
+import com.cookmate.orchestrator.VoiceAssist.TTS.VoiceWebSocketSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -45,6 +47,8 @@ public class RecipeProgressService {
     private final TransactionTemplate txTemplate;
     private final IngredientStatusRepository ingredientStatusRepository;
     private final IngredientRuntimeStatusRepository ingredientRuntimeStatusRepository;
+    private final AzureTtsService ttsService;
+    private final VoiceWebSocketSender voiceWebSocketSender;
 
     // 세션별로 중복 예약 방지용
     private final ConcurrentHashMap<String, ScheduledFuture<?>> scheduledMap = new ConcurrentHashMap<>();
@@ -210,7 +214,15 @@ public class RecipeProgressService {
                         return null;
                     }
 
-                    setNextStep(sessionKey);
+                    String result = setNextStep(sessionKey);
+                    try {
+                        byte[] pcm = ttsService.synthesizeToRawPcm(result);
+                        log.info("[TTS EVT] synthesized bytes={}", pcm.length);
+                        voiceWebSocketSender.sendPcm(sessionKey, pcm);
+                        log.info("[TTS EVT] sent");
+                    } catch (Exception e) {
+                        throw new RuntimeException("TTS failed: " + sessionKey, e);
+                    }
                     return null;
                 });
 

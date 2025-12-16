@@ -112,6 +112,7 @@ public class RecipeProgressService {
         }
 
         RecipeProgress progress = progressOpt.get();
+        progress.setIsStarted(true);
         RecipeStep currentStep = progress.getCurrentStep();
 
         String title = currentStep.getTitle();

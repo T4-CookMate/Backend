@@ -24,14 +24,8 @@ import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.BinaryWebSocketHandler;
 
 import java.io.IOException;
-import java.net.URLDecoder;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * 웹에서 전달되는 PCM 오디오 데이터를 받아 Azure STT로 스트리밍하고,
@@ -217,7 +211,8 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
         if ("READY".equals(message.getPayload())) {
             publisher.publishEvent(new TtsRequestEvent(
                     session.getId(),
-                    "요리 시작을 원하시면 '시작'이라고 말씀해주세요."
+                    "요리 시작을 원하시면 '시작'이라고 말씀해주세요.",
+                    false
             ));
         }
     }

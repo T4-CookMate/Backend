@@ -179,7 +179,8 @@ public class IngredientService {
             currentRecipeProgress.setIsDone(true);
             publisher.publishEvent(new TtsRequestEvent(
                     sessionKey,
-                    "레시피가 끝났어요. 수고하셨어요!"
+                    "레시피가 끝났어요. 수고하셨어요!",
+                    true
             ));
 
             WebSocketSession session = sender.getSession(sessionKey);
@@ -190,6 +191,7 @@ public class IngredientService {
 
             try {
                 session.sendMessage(new TextMessage("END"));
+                log.warn("[WS] END 전송");
             } catch (IOException e) {
                 log.warn("[WS] END 전송 실패 sessionKey={}", sessionKey, e);
             }
@@ -211,7 +213,8 @@ public class IngredientService {
 
         publisher.publishEvent(new TtsRequestEvent(
                 sessionKey,
-                "다음 단계예요. " + nextStep.getInstruction()
+                "다음 단계예요. " + nextStep.getInstruction(),
+                false
         ));
 
         return RecipeRuntimeResponse.from(

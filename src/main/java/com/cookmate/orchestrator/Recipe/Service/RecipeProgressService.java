@@ -17,9 +17,12 @@ import com.cookmate.orchestrator.Recipe.Repository.RecipeStepRepository;
 import com.cookmate.orchestrator.User.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.TaskScheduler;
+import com.cookmate.orchestrator.Config.SchedulerConfig;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,11 +37,12 @@ import java.util.concurrent.ScheduledFuture;
 public class RecipeProgressService {
 
     private final RecipeProgressRepository progressRepo;
-    private final TaskScheduler taskScheduler;
-    private final AutoStepService autoStepService;
+    private final @Qualifier("recipeTaskScheduler")
+    TaskScheduler taskScheduler;
     private final RecipeRepository recipeRepo;
     private final RecipeStepRepository stepRepo;
     private final UserRepository userRepo;
+    private final TransactionTemplate txTemplate;
     private final IngredientStatusRepository ingredientStatusRepository;
     private final IngredientRuntimeStatusRepository ingredientRuntimeStatusRepository;
 
@@ -170,9 +174,8 @@ public class RecipeProgressService {
         Optional<RecipeStep> afterNextStepOpt =
                 stepRepo.findNextStep(currentRecipe.getId(), nextStep.getStepIndex());
 
-        if(afterNextStepOpt.isPresent()) {
-            progress.setNextStep(afterNextStepOpt.orElse(null));
-        }
+        progress.setNextStep(afterNextStepOpt.orElse(null));
+
         String title = nextStep.getTitle();
         String instruction = nextStep.getInstruction();
         return "다음 단계는 " + title + " 입니다. "+ instruction;
@@ -188,7 +191,7 @@ public class RecipeProgressService {
         if (f != null) f.cancel(false);
     }
 
-    public void scheduleAutoNextStep(String sessionKey, Long expectedStepId, int delaySeconds) {
+    public void scheduleAutoNextStep(String sessionKey, Long currentStepId, int delaySeconds) {
 
         // 이미 예약된 게 있으면 취소
         ScheduledFuture<?> prev = scheduledMap.remove(sessionKey);
@@ -196,8 +199,19 @@ public class RecipeProgressService {
 
         ScheduledFuture<?> future = taskScheduler.schedule(() -> {
             try {
-                // 여기서 "다른 빈"을 호출해야 트랜잭션이 적용됨
-                autoStepService.runAutoNext(sessionKey, expectedStepId);
+                txTemplate.execute(status -> {
+                    RecipeProgress progress = progressRepo.findBySessionKey(sessionKey)
+                            .orElseThrow(() -> new GeneralException(ErrorStatus._NOT_FOUND));
+
+                    // LAZY 접근이 있어도 트랜잭션 안이라 안전
+                    if (!progress.getCurrentStep().getId().equals(currentStepId)) {
+                        log.info("[AUTO NEXT] step changed. skip session={}", sessionKey);
+                        return null;
+                    }
+
+                    setNextStep(sessionKey);
+                    return null;
+                });
 
             } catch (Exception e) {
                 log.error("[AUTO NEXT] failed session={}", sessionKey, e);
@@ -205,7 +219,7 @@ public class RecipeProgressService {
             } finally {
                 scheduledMap.remove(sessionKey);
             }
-        }, Instant.now().plusSeconds(delaySeconds));
+        }, Instant.now().plusSeconds(delaySeconds));       // 지금으로부터 delaySeconds초 뒤에 안의 코드를 수행한다
 
         scheduledMap.put(sessionKey, future);
 

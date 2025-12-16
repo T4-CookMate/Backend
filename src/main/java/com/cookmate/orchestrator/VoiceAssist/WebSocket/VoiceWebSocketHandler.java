@@ -112,6 +112,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                                 || text.startsWith("짝꿍화")
                                 || text.startsWith("자꾸만")
                                 || text.startsWith("딱 공학")
+                                || text.startsWith("작곡한")
                                 || text.startsWith("짝궁아");
 
                 if (!hasWakeWord) {
@@ -145,6 +146,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                         .replaceFirst("^짝꿍아", "")
                         .replaceFirst("^짝꿍화", "")
                         .replaceFirst("^자꾸만", "")
+                        .replaceFirst("^작곡한", "")
                         .replaceFirst("^딱 공학", "")
                         .replaceFirst("^짝궁아", "")
                         .trim();

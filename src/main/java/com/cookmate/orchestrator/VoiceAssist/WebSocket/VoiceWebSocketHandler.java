@@ -137,7 +137,7 @@ public class VoiceWebSocketHandler extends BinaryWebSocketHandler {
                     }
 
                     // 여기까지 왔으면: 호출어도 없고, 단답을 기대하는 상황도 아님 → 무시(또는 안내)
-                    log.info("[STT] 호출어 없음 & 처리할 단답 상태 아님 → 무시: {}", text);
+                    log.info("[STT] 무시: {}", text);
                     return;
                 }
 

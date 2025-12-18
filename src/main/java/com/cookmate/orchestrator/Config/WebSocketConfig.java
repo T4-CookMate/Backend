@@ -22,7 +22,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
         /** WebSocket 접속 경로를 서버에 등록 후 핸드쉐이크 요청 들어오면 voiceWebSocketHandler가 처리 */
         registry.addHandler(voiceWebSocketHandler, "/ws/voice")
                 .addInterceptors(jwtHandshakeInterceptor)
-                .setAllowedOrigins("*");                        // 개발단계에서는 모든 도메인 허용
-                //.setAllowedOrigins("https://cookmate.com");   // TODO: 프론트 도메인 맞춰 수정
+                .setAllowedOriginPatterns("https://t4-cookmate.netlify.app");
     }
 }

@@ -27,11 +27,11 @@ public class SecurityConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowCredentials(true);
         cfg.setAllowedOrigins(List.of(
-                "http://localhost:5173"   // Vite
-                // TODO 나중에 배포 프론트 도메인 추가
+                "https://t4-cookmate.netlify.app"
         ));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("*"));
+        cfg.setAllowedHeaders(List.of("Authorization","Content-Type","Accept"));
+        cfg.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
